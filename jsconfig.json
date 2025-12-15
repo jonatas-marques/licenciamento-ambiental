@@ -1,0 +1,6 @@
+//defines the base URL for module resolution
+{
+  "compilerOptions": {
+    "baseUrl": "."
+  }
+}
