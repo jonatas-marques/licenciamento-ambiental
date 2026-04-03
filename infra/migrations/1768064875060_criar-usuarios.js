@@ -32,6 +32,11 @@ exports.up = (pgm) => {
       notNull: true,
       default: pgm.func("timezone('utc', now())"),
     },
+    features: {
+      type: "varchar[]",
+      notNull: true,
+      default: "{}",
+    },
   });
 };
 
