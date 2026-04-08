@@ -89,10 +89,6 @@ async function findOneByCNPJ(cnpj) {
 }
 
 async function createPessoaFisica(userInputValues) {
-  console.log(
-    "Criando pessoa física com os seguintes valores de entrada:",
-    userInputValues,
-  );
   const pessoaBase = await insertPessoaBase(
     "pessoa física",
     //falta implementar endereço e telefone

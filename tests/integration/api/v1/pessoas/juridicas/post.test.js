@@ -9,11 +9,40 @@ beforeAll(async () => {
 });
 
 describe("POST /api/v1/pessoas/juridicas", () => {
+  describe("Anonymous user", () => {
+    test("With valid data", async () => {
+      const response = await fetch(
+        `${webserver.origin}/api/v1/pessoas/juridicas`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nome: "Empresa Teste Ltda",
+            cnpj: "12345678000123",
+          }),
+        },
+      );
+
+      expect(response.status).toBe(403);
+
+      const responseBody = await response.json();
+
+      expect(responseBody).toEqual({
+        name: "ForbiddenError",
+        message: "Você não possui permissão para executar esta ação.",
+        action: 'Verifique se o seu usuário possui a feature "create:pessoa".',
+        status_code: 403,
+      });
+    });
+  });
+
   describe("Default user", () => {
     test("With valid data", async () => {
       const user = await orchestrator.createUser();
-      await orchestrator.activateUser(user);
-      const userSessionObject = await orchestrator.createSession(user);
+      const activatedUser = await orchestrator.activateUser(user);
+      const userSessionObject = await orchestrator.createSession(activatedUser);
 
       const response = await fetch(
         `${webserver.origin}/api/v1/pessoas/juridicas`,
@@ -26,7 +55,6 @@ describe("POST /api/v1/pessoas/juridicas", () => {
           body: JSON.stringify({
             nome: "Empresa Teste Ltda",
             cnpj: "12345678000123",
-            criado_por: user.id,
           }),
         },
       );
@@ -66,7 +94,6 @@ describe("POST /api/v1/pessoas/juridicas", () => {
           body: JSON.stringify({
             nome: "Empresa 1 Ltda",
             cnpj: "00000000000001",
-            criado_por: user.id,
           }),
         },
       );
@@ -84,7 +111,6 @@ describe("POST /api/v1/pessoas/juridicas", () => {
           body: JSON.stringify({
             nome: "Empresa 2 Ltda",
             cnpj: "00000000000001", // Mesmo CNPJ do primeiro cadastro
-            criado_por: user.id,
           }),
         },
       );

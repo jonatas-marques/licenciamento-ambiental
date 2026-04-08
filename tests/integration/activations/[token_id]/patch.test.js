@@ -127,6 +127,8 @@ describe("PATCH /api/v1/activations/[token_id]", () => {
         "create:session",
         "read:session",
         "update:user",
+        "create:pessoa",
+        "read:pessoa",
       ]);
     });
     test("With valid token but already activated user", async () => {

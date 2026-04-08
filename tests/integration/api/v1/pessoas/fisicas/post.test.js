@@ -9,11 +9,41 @@ beforeAll(async () => {
 });
 
 describe("POST /api/v1/pessoas/fisicas", () => {
+  describe("Anonymous user", () => {
+    test("Creating new person", async () => {
+      const response = await fetch(
+        `${webserver.origin}/api/v1/pessoas/fisicas`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nome: "Fulano de Tal",
+            nome_mae: "Beltrana de Tal",
+            data_nascimento: "1990-01-01",
+            cpf: "03819247812",
+          }),
+        },
+      );
+
+      expect(response.status).toBe(403);
+
+      const responseBody = await response.json();
+      expect(responseBody).toEqual({
+        name: "ForbiddenError",
+        message: "Você não possui permissão para executar esta ação.",
+        action: 'Verifique se o seu usuário possui a feature "create:pessoa".',
+        status_code: 403,
+      });
+    });
+  });
+
   describe("Default user", () => {
     test("With valid data", async () => {
       const user = await orchestrator.createUser();
-      await orchestrator.activateUser(user);
-      const userSessionObject = await orchestrator.createSession(user);
+      const activatedUser = await orchestrator.activateUser(user);
+      const userSessionObject = await orchestrator.createSession(activatedUser);
 
       const response = await fetch(
         `${webserver.origin}/api/v1/pessoas/fisicas`,
@@ -28,7 +58,6 @@ describe("POST /api/v1/pessoas/fisicas", () => {
             nome_mae: "Beltrana de Tal",
             data_nascimento: "1990-01-01",
             cpf: "03819247812",
-            criado_por: user.id,
           }),
         },
       );
@@ -72,7 +101,6 @@ describe("POST /api/v1/pessoas/fisicas", () => {
             nome_mae: "Nome da Mãe da Pessoa 1",
             data_nascimento: "1990-01-01",
             cpf: "00000000001",
-            criado_por: user.id,
           }),
         },
       );
@@ -92,7 +120,6 @@ describe("POST /api/v1/pessoas/fisicas", () => {
             nome_mae: "Nome da Mãe da Pessoa 2",
             data_nascimento: "1990-01-01",
             cpf: "00000000001", // Mesmo CPF do primeiro cadastro
-            criado_por: user.id,
           }),
         },
       );
