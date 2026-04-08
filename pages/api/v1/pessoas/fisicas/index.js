@@ -9,7 +9,7 @@ export default createRouter()
 
 async function postHandler(request, response) {
   const userInputValues = request.body;
-  const novaPessoa = await pessoa.create(userInputValues);
+  const novaPessoa = await pessoa.createPessoaFisica(userInputValues);
 
   return response.status(201).json(novaPessoa);
 }

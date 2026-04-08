@@ -5,6 +5,12 @@ exports.up = (pgm) => {
       primaryKey: true,
       default: pgm.func("gen_random_uuid()"),
     },
+    // Valores nulos representam cadastros incompletos
+    pessoa_id: {
+      type: "uuid",
+      notNull: false,
+      unique: true,
+    },
     //For reference, GitHub limits usernames to 39 characters.
     username: {
       type: "varchar(30)",

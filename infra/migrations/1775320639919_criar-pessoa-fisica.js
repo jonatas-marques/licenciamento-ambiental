@@ -10,11 +10,11 @@ exports.up = (pgm) => {
     },
     data_nascimento: {
       type: "date",
-      notNull: false,
+      notNull: true,
     },
     nome_mae: {
       type: "varchar(254)",
-      notNull: false,
+      notNull: true,
     },
     criado_em: {
       type: "timestamptz",
