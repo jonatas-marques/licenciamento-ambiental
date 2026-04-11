@@ -8,22 +8,19 @@ beforeAll(async () => {
   await orchestrator.runPendingMigrations();
 });
 
-describe("POST /api/v1/pessoas/juridicas", () => {
+describe("POST /api/v1/persons/legal", () => {
   describe("Anonymous user", () => {
     test("With valid data", async () => {
-      const response = await fetch(
-        `${webserver.origin}/api/v1/pessoas/juridicas`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            nome: "Empresa Teste Ltda",
-            cnpj: "12345678000123",
-          }),
+      const response = await fetch(`${webserver.origin}/api/v1/persons/legal`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          name: "Empresa Teste Ltda",
+          cnpj: "12345678000123",
+        }),
+      });
 
       expect(response.status).toBe(403);
 
@@ -32,7 +29,7 @@ describe("POST /api/v1/pessoas/juridicas", () => {
       expect(responseBody).toEqual({
         name: "ForbiddenError",
         message: "Você não possui permissão para executar esta ação.",
-        action: 'Verifique se o seu usuário possui a feature "create:pessoa".',
+        action: 'Verifique se o seu usuário possui a feature "create:person".',
         status_code: 403,
       });
     });
@@ -44,20 +41,17 @@ describe("POST /api/v1/pessoas/juridicas", () => {
       const activatedUser = await orchestrator.activateUser(user);
       const userSessionObject = await orchestrator.createSession(activatedUser);
 
-      const response = await fetch(
-        `${webserver.origin}/api/v1/pessoas/juridicas`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Cookie: `session_id=${userSessionObject.token}`,
-          },
-          body: JSON.stringify({
-            nome: "Empresa Teste Ltda",
-            cnpj: "12345678000123",
-          }),
+      const response = await fetch(`${webserver.origin}/api/v1/persons/legal`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `session_id=${userSessionObject.token}`,
         },
-      );
+        body: JSON.stringify({
+          name: "Empresa Teste Ltda",
+          cnpj: "12345678000123",
+        }),
+      });
 
       expect(response.status).toBe(201);
 
@@ -65,17 +59,17 @@ describe("POST /api/v1/pessoas/juridicas", () => {
 
       expect(responseBody).toEqual({
         id: responseBody.id,
-        tipo: "pessoa jurídica",
-        nome: "Empresa Teste Ltda",
-        criado_por: user.id,
-        criado_em: responseBody.criado_em,
-        atualizado_em: responseBody.atualizado_em,
+        type: "pessoa jurídica",
+        name: "Empresa Teste Ltda",
+        created_by: user.id,
+        created_at: responseBody.created_at,
+        updated_at: responseBody.updated_at,
         cnpj: "12345678000123",
       });
 
       expect(uuidVersion(responseBody.id)).toBe(4);
-      expect(Date.parse(responseBody.criado_em)).not.toBeNaN();
-      expect(Date.parse(responseBody.atualizado_em)).not.toBeNaN();
+      expect(Date.parse(responseBody.created_at)).not.toBeNaN();
+      expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
     });
 
     test("With duplicated `CNPJ`", async () => {
@@ -84,7 +78,7 @@ describe("POST /api/v1/pessoas/juridicas", () => {
       const userSessionObject = await orchestrator.createSession(user);
 
       const response1 = await fetch(
-        `${webserver.origin}/api/v1/pessoas/juridicas`,
+        `${webserver.origin}/api/v1/persons/legal`,
         {
           method: "POST",
           headers: {
@@ -92,7 +86,7 @@ describe("POST /api/v1/pessoas/juridicas", () => {
             Cookie: `session_id=${userSessionObject.token}`,
           },
           body: JSON.stringify({
-            nome: "Empresa 1 Ltda",
+            name: "Empresa 1 Ltda",
             cnpj: "00000000000001",
           }),
         },
@@ -101,7 +95,7 @@ describe("POST /api/v1/pessoas/juridicas", () => {
       expect(response1.status).toBe(201);
 
       const response2 = await fetch(
-        `${webserver.origin}/api/v1/pessoas/juridicas`,
+        `${webserver.origin}/api/v1/persons/legal`,
         {
           method: "POST",
           headers: {
@@ -109,7 +103,7 @@ describe("POST /api/v1/pessoas/juridicas", () => {
             Cookie: `session_id=${userSessionObject.token}`,
           },
           body: JSON.stringify({
-            nome: "Empresa 2 Ltda",
+            name: "Empresa 2 Ltda",
             cnpj: "00000000000001", // Mesmo CNPJ do primeiro cadastro
           }),
         },

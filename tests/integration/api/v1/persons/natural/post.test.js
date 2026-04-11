@@ -8,20 +8,20 @@ beforeAll(async () => {
   await orchestrator.runPendingMigrations();
 });
 
-describe("POST /api/v1/pessoas/fisicas", () => {
+describe("POST /api/v1/persons/natural", () => {
   describe("Anonymous user", () => {
     test("Creating new person", async () => {
       const response = await fetch(
-        `${webserver.origin}/api/v1/pessoas/fisicas`,
+        `${webserver.origin}/api/v1/persons/natural`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            nome: "Fulano de Tal",
-            nome_mae: "Beltrana de Tal",
-            data_nascimento: "1990-01-01",
+            name: "Fulano de Tal",
+            mother_name: "Beltrana de Tal",
+            birth_date: "1990-01-01",
             cpf: "03819247812",
           }),
         },
@@ -33,7 +33,7 @@ describe("POST /api/v1/pessoas/fisicas", () => {
       expect(responseBody).toEqual({
         name: "ForbiddenError",
         message: "Você não possui permissão para executar esta ação.",
-        action: 'Verifique se o seu usuário possui a feature "create:pessoa".',
+        action: 'Verifique se o seu usuário possui a feature "create:person".',
         status_code: 403,
       });
     });
@@ -46,7 +46,7 @@ describe("POST /api/v1/pessoas/fisicas", () => {
       const userSessionObject = await orchestrator.createSession(activatedUser);
 
       const response = await fetch(
-        `${webserver.origin}/api/v1/pessoas/fisicas`,
+        `${webserver.origin}/api/v1/persons/natural`,
         {
           method: "POST",
           headers: {
@@ -54,9 +54,9 @@ describe("POST /api/v1/pessoas/fisicas", () => {
             Cookie: `session_id=${userSessionObject.token}`,
           },
           body: JSON.stringify({
-            nome: "Fulano de Tal",
-            nome_mae: "Beltrana de Tal",
-            data_nascimento: "1990-01-01",
+            name: "Fulano de Tal",
+            mother_name: "Beltrana de Tal",
+            birth_date: "1990-01-01",
             cpf: "03819247812",
           }),
         },
@@ -68,19 +68,19 @@ describe("POST /api/v1/pessoas/fisicas", () => {
 
       expect(responseBody).toEqual({
         id: responseBody.id,
-        tipo: responseBody.tipo,
-        nome: "Fulano de Tal",
-        criado_por: user.id,
-        criado_em: responseBody.criado_em,
-        atualizado_em: responseBody.atualizado_em,
+        type: responseBody.type,
+        name: "Fulano de Tal",
+        created_by: user.id,
+        created_at: responseBody.created_at,
+        updated_at: responseBody.updated_at,
         cpf: "03819247812",
-        data_nascimento: "1990-01-01T00:00:00.000Z", // ISO string format
-        nome_mae: "Beltrana de Tal",
+        birth_date: "1990-01-01T00:00:00.000Z", // ISO string format
+        mother_name: "Beltrana de Tal",
       });
 
       expect(uuidVersion(responseBody.id)).toBe(4);
-      expect(Date.parse(responseBody.criado_em)).not.toBeNaN();
-      expect(Date.parse(responseBody.atualizado_em)).not.toBeNaN();
+      expect(Date.parse(responseBody.created_at)).not.toBeNaN();
+      expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
     });
 
     test("With duplicated `CPF`", async () => {
@@ -89,7 +89,7 @@ describe("POST /api/v1/pessoas/fisicas", () => {
       const userSessionObject = await orchestrator.createSession(user);
 
       const response1 = await fetch(
-        `${webserver.origin}/api/v1/pessoas/fisicas`,
+        `${webserver.origin}/api/v1/persons/natural`,
         {
           method: "POST",
           headers: {
@@ -97,9 +97,9 @@ describe("POST /api/v1/pessoas/fisicas", () => {
             Cookie: `session_id=${userSessionObject.token}`,
           },
           body: JSON.stringify({
-            nome: "Nome da Pessoa 1",
-            nome_mae: "Nome da Mãe da Pessoa 1",
-            data_nascimento: "1990-01-01",
+            name: "Nome da Pessoa 1",
+            mother_name: "Nome da Mãe da Pessoa 1",
+            birth_date: "1990-01-01",
             cpf: "00000000001",
           }),
         },
@@ -108,7 +108,7 @@ describe("POST /api/v1/pessoas/fisicas", () => {
       expect(response1.status).toBe(201);
 
       const response2 = await fetch(
-        `${webserver.origin}/api/v1/pessoas/fisicas`,
+        `${webserver.origin}/api/v1/persons/natural`,
         {
           method: "POST",
           headers: {
@@ -116,10 +116,11 @@ describe("POST /api/v1/pessoas/fisicas", () => {
             Cookie: `session_id=${userSessionObject.token}`,
           },
           body: JSON.stringify({
-            nome: "Nome da Pessoa 2",
-            nome_mae: "Nome da Mãe da Pessoa 2",
-            data_nascimento: "1990-01-01",
+            name: "Nome da Pessoa 2",
+            mother_name: "Nome da Mãe da Pessoa 2",
+            birth_date: "1990-01-01",
             cpf: "00000000001", // Mesmo CPF do primeiro cadastro
+            created_by: user.id,
           }),
         },
       );

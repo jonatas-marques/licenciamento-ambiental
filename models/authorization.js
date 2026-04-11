@@ -24,8 +24,8 @@ const availableFeatures = [
   "read:status:all",
 
   // PESSOA
-  "create:pessoa",
-  "read:pessoa",
+  "create:person",
+  "read:person",
 ];
 
 function can(user, feature, resource) {
@@ -130,7 +130,7 @@ function filterOutput(user, feature, resource) {
     return output;
   }
 
-  if (feature === "create:pessoa") {
+  if (feature === "create:person") {
     return resource;
   }
 }

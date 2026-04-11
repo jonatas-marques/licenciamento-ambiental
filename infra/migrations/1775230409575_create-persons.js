@@ -1,19 +1,29 @@
 exports.up = (pgm) => {
-  pgm.createTable("pessoa_juridica", {
+  pgm.createTable("persons", {
     id: {
       type: "uuid",
       primaryKey: true,
+      default: pgm.func("gen_random_uuid()"),
     },
-    cnpj: {
-      type: "varchar(14)",
+    // Pessoa física ou jurídica
+    type: {
+      type: "varchar(30)",
       notNull: true,
     },
-    criado_em: {
+    name: {
+      type: "varchar(254)",
+      notNull: true,
+    },
+    created_by: {
+      type: "uuid",
+      notNull: false,
+    },
+    created_at: {
       type: "timestamptz",
       notNull: true,
       default: pgm.func("timezone('utc', now())"),
     },
-    atualizado_em: {
+    updated_at: {
       type: "timestamptz",
       notNull: true,
       default: pgm.func("timezone('utc', now())"),
