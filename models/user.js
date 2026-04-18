@@ -150,7 +150,7 @@ async function update(username, userInputValues) {
   async function runUpdateQuery(userWithNewValues) {
     const results = await database.query({
       text: `
-      uPDATE
+      UPDATE
         users
       SET
         username = $2,

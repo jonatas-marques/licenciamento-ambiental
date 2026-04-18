@@ -21,6 +21,7 @@ async function findOneById(id) {
     });
     if (results.rowCount === 0) {
       throw new NotFoundError({
+        name: "NotFoundError",
         message: "Pessoa não encontrada.",
         action: "Verifique o ID da pessoa informado.",
         status_code: 404,
@@ -207,12 +208,72 @@ async function validateUniqueCnpj(cnpj) {
   }
 }
 
+async function validateUniqueLegalName(name) {
+  const results = await database.query({
+    text: `
+      SELECT 
+        name 
+      FROM 
+        legal_persons
+      WHERE
+        name = $1
+      ;`,
+    values: [name],
+  });
+  if (results.rowCount > 0) {
+    throw new ValidationError({
+      message: "Nome já está em uso.",
+      action: "Utilize outro nome para realizar esta operação.",
+    });
+  }
+}
+
+async function update(personId, userInputValues) {
+  const currentPerson = await findOneById(personId);
+
+  if ("name" in userInputValues) {
+    await validateUniqueLegalName(userInputValues.name);
+  }
+
+  if ("cnpj" in userInputValues) {
+    await validateUniqueCnpj(userInputValues.cnpj);
+  }
+
+  const personWithNewValues = {
+    ...currentPerson,
+    ...userInputValues,
+  };
+
+  const updatedPerson = await runUpdateQuery(personWithNewValues);
+  return updatedPerson;
+
+  async function runUpdateQuery(userWithNewValues) {
+    const results = await database.query({
+      text: `
+        UPDATE
+          persons
+        SET
+          name = $2,
+          updated_at = timezone('utc'::text, now())
+        WHERE
+          id = $1
+        RETURNING
+          *
+        ;
+        `,
+      values: [userWithNewValues.id, userWithNewValues.name],
+    });
+    return results.rows[0];
+  }
+}
+
 const person = {
   createNaturalPerson,
   createLegalPerson,
   findOneById,
   findOneByCPF,
   findOneByCNPJ,
+  update,
 };
 
 export default person;

@@ -6,7 +6,7 @@ exports.up = (pgm) => {
       default: pgm.func("gen_random_uuid()"),
     },
     // Valores nulos representam cadastros incompletos
-    pessoa_id: {
+    person_id: {
       type: "uuid",
       notNull: false,
       unique: true,
