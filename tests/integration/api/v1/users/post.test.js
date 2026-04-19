@@ -19,8 +19,8 @@ describe("POST /api/v1/users", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username: "testname",
-          email: "testcontact@example.com",
+          cpf: "10000000111",
+          email: "annonymous@mail.com",
           password: "senha123",
         }),
       });
@@ -31,7 +31,6 @@ describe("POST /api/v1/users", () => {
 
       expect(responseBody).toEqual({
         id: responseBody.id,
-        username: "testname",
         features: ["read:activation_token"],
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,
@@ -41,7 +40,7 @@ describe("POST /api/v1/users", () => {
       expect(Date.parse(responseBody.created_at)).not.toBeNaN();
       expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
 
-      const userInDatabase = await user.findOneByUsername("testname");
+      const userInDatabase = await user.findOneByCPF("10000000111");
       const correctPasswordMatch = await password.compare(
         "senha123",
         userInDatabase.password,
@@ -54,14 +53,14 @@ describe("POST /api/v1/users", () => {
       expect(incorrectPasswordMatch).toBe(false);
     });
 
-    test("With duplicated `username`", async () => {
+    test("With duplicated `cpf`", async () => {
       const response1 = await fetch(`${webserver.origin}/api/v1/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username: "nomeduplicado",
+          cpf: "00000000001",
           email: "contato1@duplicado.com",
           password: "senha123",
         }),
@@ -73,7 +72,7 @@ describe("POST /api/v1/users", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username: "NomeDuplicado",
+          cpf: "00000000001",
           email: "contato2@duplicado.com",
           password: "senha123",
         }),
@@ -82,8 +81,8 @@ describe("POST /api/v1/users", () => {
       const response2Body = await response2.json();
       expect(response2Body).toEqual({
         name: "ValidationError",
-        message: "Nome de usuário já está em uso.",
-        action: "Utilize outro nome de usuário para realizar esta operação.",
+        message: "CPF já está em uso.",
+        action: "Utilize outro CPF para realizar esta operação.",
         status_code: 400,
       });
     });
@@ -95,7 +94,7 @@ describe("POST /api/v1/users", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username: "emailduplicado1",
+          cpf: "00000000044",
           email: "duplicado@example.com",
           password: "senha123",
         }),
@@ -107,7 +106,7 @@ describe("POST /api/v1/users", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username: "emailduplicado2",
+          cpf: "00000000055",
           email: "Duplicado@example.com",
           password: "senha123",
         }),
@@ -136,7 +135,7 @@ describe("POST /api/v1/users", () => {
           Cookie: `session_id=${user1SessionObject.token}`,
         },
         body: JSON.stringify({
-          username: "usuariologado",
+          cpf: "00000000077",
           email: "usuariologado@test.com",
           password: "senha123",
         }),

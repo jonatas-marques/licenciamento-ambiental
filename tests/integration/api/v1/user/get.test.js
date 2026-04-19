@@ -30,7 +30,7 @@ describe("GET /api/v1/user", () => {
   describe("Default user", () => {
     test("With valid session", async () => {
       const createdUser = await orchestrator.createUser({
-        username: "UserWithValidSession",
+        cpf: "11122233344",
       });
 
       const activatedUser = await orchestrator.activateUser(createdUser);
@@ -53,7 +53,7 @@ describe("GET /api/v1/user", () => {
       const responseBody = await response.json();
       expect(responseBody).toEqual({
         id: createdUser.id,
-        username: createdUser.username,
+        cpf: createdUser.cpf,
         email: createdUser.email,
         features: [
           "create:session",
@@ -102,7 +102,7 @@ describe("GET /api/v1/user", () => {
       });
 
       const createdUser = await orchestrator.createUser({
-        username: "UserWithHalfwayExpiredSession",
+        cpf: "12122233344",
       });
 
       const activatedUser = await orchestrator.activateUser(createdUser);
@@ -123,7 +123,7 @@ describe("GET /api/v1/user", () => {
 
       expect(responseBody).toEqual({
         id: createdUser.id,
-        username: "UserWithHalfwayExpiredSession",
+        cpf: "12122233344",
         email: createdUser.email,
         features: [
           "create:session",
@@ -207,7 +207,7 @@ describe("GET /api/v1/user", () => {
       });
 
       const createdUser = await orchestrator.createUser({
-        username: "UserWithExpiredSession",
+        cpf: "11122233347",
       });
 
       const sessionObject = await orchestrator.createSession(createdUser);

@@ -64,7 +64,7 @@ async function sendEmailtoUser(user, activationToken) {
     from: "LicenciamentoAmbiental <contato@licenciamento-ambiental.dev.br>",
     to: user.email,
     subject: "Ative sua conta no Clone TabNews",
-    text: `${user.username}, clique no link abaixo para ativar sua conta:\n\n${webserver.origin}/cadastro/ativar/${activationToken.id}\n\nAtenciosamente,\nEquipe`,
+    text: `Prezado/a, clique no link abaixo para ativar sua conta:\n\n${webserver.origin}/cadastro/ativar/${activationToken.id}\n\nAtenciosamente,\nEquipe`,
   });
 }
 

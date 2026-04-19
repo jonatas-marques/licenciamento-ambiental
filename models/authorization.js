@@ -59,7 +59,6 @@ function filterOutput(user, feature, resource) {
   if (feature === "read:user") {
     return {
       id: resource.id,
-      username: resource.username,
       features: resource.features,
       created_at: resource.created_at,
       updated_at: resource.updated_at,
@@ -70,7 +69,7 @@ function filterOutput(user, feature, resource) {
     if (user.id === resource.id) {
       return {
         id: resource.id,
-        username: resource.username,
+        cpf: resource.cpf,
         email: resource.email,
         features: resource.features,
 

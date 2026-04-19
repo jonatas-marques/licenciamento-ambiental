@@ -10,20 +10,21 @@ beforeAll(async () => {
   await orchestrator.runPendingMigrations();
 });
 
-describe("PATCH /api/v1/users/[username]", () => {
+describe("PATCH /api/v1/users/[id]", () => {
   describe("Annonymous user", () => {
-    test("With unique `username`", async () => {
+    test("With existent `id`", async () => {
       const createdUser = await orchestrator.createUser();
 
       const response = await fetch(
-        `${webserver.origin}/api/v1/users/${createdUser.username}`,
+        `${webserver.origin}/api/v1/users/${createdUser.id}`,
         {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
           },
+          // Tentando atualizar o email
           body: JSON.stringify({
-            username: "uniqueUser2",
+            email: "annonymoususer@mail.com",
           }),
         },
       );
@@ -38,14 +39,15 @@ describe("PATCH /api/v1/users/[username]", () => {
       });
     });
   });
+
   describe("Default user", () => {
-    test("With nonexistent `username`", async () => {
+    test("With nonexistent `id`", async () => {
       const createdUser = await orchestrator.createUser();
       const activatedUser = await orchestrator.activateUser(createdUser);
       const sessionObject = await orchestrator.createSession(activatedUser);
 
       const response = await fetch(
-        `${webserver.origin}/api/v1/users/UsuarioInexistente`,
+        `${webserver.origin}/api/v1/users/18ebcef8-babc-481b-873f-fcfdff8a7661`,
         {
           method: "PATCH",
           headers: {
@@ -59,67 +61,73 @@ describe("PATCH /api/v1/users/[username]", () => {
 
       expect(responseBody).toEqual({
         name: "NotFoundError",
-        message: "Usuário não encontrado.",
-        action: "Verifique o nome de usuário informado.",
+        message: "ID não encontrado.",
+        action: "Verifique o ID do usuário informado.",
         status_code: 404,
       });
     });
 
-    test("With duplicated `username`", async () => {
+    test("With duplicated `cpf`", async () => {
       await orchestrator.createUser({
-        username: "user1",
+        cpf: "11122233344",
       });
 
       const createdUser2 = await orchestrator.createUser({
-        username: "user2",
+        cpf: "55566677788",
       });
 
       const activatedUser2 = await orchestrator.activateUser(createdUser2);
       const sessionObject2 = await orchestrator.createSession(activatedUser2);
 
-      const response = await fetch(`${webserver.origin}/api/v1/users/user2`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: `session_id=${sessionObject2.token}`,
+      const response = await fetch(
+        `${webserver.origin}/api/v1/users/${createdUser2.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `session_id=${sessionObject2.token}`,
+          },
+          body: JSON.stringify({
+            cpf: "11122233344",
+          }),
         },
-        body: JSON.stringify({
-          username: "user1",
-        }),
-      });
+      );
       expect(response.status).toBe(400);
 
       const responseBody = await response.json();
       expect(responseBody).toEqual({
         name: "ValidationError",
-        message: "Nome de usuário já está em uso.",
-        action: "Utilize outro nome de usuário para realizar esta operação.",
+        message: "CPF já está em uso.",
+        action: "Utilize outro CPF para realizar esta operação.",
         status_code: 400,
       });
     });
 
     test("With `userB` targeting `userA`", async () => {
-      await orchestrator.createUser({
-        username: "userA",
+      const createdUserA = await orchestrator.createUser({
+        email: "userA@mail.com",
       });
 
       const createdUserB = await orchestrator.createUser({
-        username: "userB",
+        email: "userB@mail.com",
       });
 
       const activatedUserB = await orchestrator.activateUser(createdUserB);
       const sessionObjectB = await orchestrator.createSession(activatedUserB);
 
-      const response = await fetch(`${webserver.origin}/api/v1/users/userA`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: `session_id=${sessionObjectB.token}`,
+      const response = await fetch(
+        `${webserver.origin}/api/v1/users/${createdUserA.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `session_id=${sessionObjectB.token}`,
+          },
+          body: JSON.stringify({
+            email: "userC@mail.com",
+          }),
         },
-        body: JSON.stringify({
-          username: "userC",
-        }),
-      });
+      );
       expect(response.status).toBe(403);
 
       const responseBody = await response.json();
@@ -145,7 +153,7 @@ describe("PATCH /api/v1/users/[username]", () => {
       const sessionObject2 = await orchestrator.createSession(activatedUser2);
 
       const response = await fetch(
-        `${webserver.origin}/api/v1/users/${createdUser2.username}`,
+        `${webserver.origin}/api/v1/users/${createdUser2.id}`,
         {
           method: "PATCH",
           headers: {
@@ -168,13 +176,15 @@ describe("PATCH /api/v1/users/[username]", () => {
       });
     });
 
-    test("With unique `username`", async () => {
+    // Teste mostra que ainda é possível atualizar CPF do usuário
+    // Isso precisa ser corrigido para garantir que CPF não seja atualizado
+    test("With unique `cpf`", async () => {
       const createdUser = await orchestrator.createUser();
       const activatedUser = await orchestrator.activateUser(createdUser);
       const sessionObject = await orchestrator.createSession(activatedUser);
 
       const response = await fetch(
-        `${webserver.origin}/api/v1/users/${createdUser.username}`,
+        `${webserver.origin}/api/v1/users/${createdUser.id}`,
         {
           method: "PATCH",
           headers: {
@@ -182,7 +192,7 @@ describe("PATCH /api/v1/users/[username]", () => {
             Cookie: `session_id=${sessionObject.token}`,
           },
           body: JSON.stringify({
-            username: "uniqueUser2",
+            cpf: "12345678911",
           }),
         },
       );
@@ -191,7 +201,6 @@ describe("PATCH /api/v1/users/[username]", () => {
       const responseBody = await response.json();
       expect(responseBody).toEqual({
         id: responseBody.id,
-        username: "uniqueUser2",
         features: [
           "create:session",
           "read:session",
@@ -215,7 +224,7 @@ describe("PATCH /api/v1/users/[username]", () => {
       const sessionObject = await orchestrator.createSession(activatedUser);
 
       const response = await fetch(
-        `${webserver.origin}/api/v1/users/${createdUser.username}`,
+        `${webserver.origin}/api/v1/users/${createdUser.id}`,
         {
           method: "PATCH",
           headers: {
@@ -234,7 +243,6 @@ describe("PATCH /api/v1/users/[username]", () => {
 
       expect(responseBody).toEqual({
         id: responseBody.id,
-        username: createdUser.username,
         features: [
           "create:session",
           "read:session",
@@ -251,7 +259,7 @@ describe("PATCH /api/v1/users/[username]", () => {
       expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
       expect(responseBody.updated_at > responseBody.created_at).toBe(true);
 
-      const userInDatabase = await user.findOneByUsername(createdUser.username);
+      const userInDatabase = await user.findOneByCPF(createdUser.cpf);
 
       expect(userInDatabase.email).toBe("uniqueEmail2@mail.com");
     });
@@ -262,7 +270,7 @@ describe("PATCH /api/v1/users/[username]", () => {
       const sessionObject = await orchestrator.createSession(activatedUser);
 
       const response = await fetch(
-        `${webserver.origin}/api/v1/users/${createdUser.username}`,
+        `${webserver.origin}/api/v1/users/${createdUser.id}`,
         {
           method: "PATCH",
           headers: {
@@ -281,7 +289,6 @@ describe("PATCH /api/v1/users/[username]", () => {
 
       expect(responseBody).toEqual({
         id: responseBody.id,
-        username: createdUser.username,
         features: [
           "create:session",
           "read:session",
@@ -298,7 +305,7 @@ describe("PATCH /api/v1/users/[username]", () => {
       expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
       expect(responseBody.updated_at > responseBody.created_at).toBe(true);
 
-      const userInDatabase = await user.findOneByUsername(createdUser.username);
+      const userInDatabase = await user.findOneByCPF(createdUser.cpf);
       const correctPasswordMatch = await password.compare(
         "newPassword2",
         userInDatabase.password,
@@ -328,7 +335,7 @@ describe("PATCH /api/v1/users/[username]", () => {
       const defaultUser = await orchestrator.createUser();
 
       const response = await fetch(
-        `${webserver.origin}/api/v1/users/${defaultUser.username}`,
+        `${webserver.origin}/api/v1/users/${defaultUser.id}`,
         {
           method: "PATCH",
           headers: {
@@ -336,7 +343,7 @@ describe("PATCH /api/v1/users/[username]", () => {
             Cookie: `session_id=${privilegedUserSession.token}`,
           },
           body: JSON.stringify({
-            username: "AlteradoPorPrivilegiado",
+            email: "newEmail@mail.com",
           }),
         },
       );
@@ -346,7 +353,6 @@ describe("PATCH /api/v1/users/[username]", () => {
 
       expect(responseBody).toEqual({
         id: defaultUser.id,
-        username: "AlteradoPorPrivilegiado",
         features: ["read:activation_token"],
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,

@@ -32,11 +32,11 @@ async function findOneById(id) {
     return results.rows[0];
   }
 }
-async function findOneByUsername(username) {
-  const userFound = await runSelectQuery(username);
+async function findOneByCPF(cpf) {
+  const userFound = await runSelectQuery(cpf);
   return userFound;
 
-  async function runSelectQuery(username) {
+  async function runSelectQuery(cpf) {
     const results = await database.query({
       text: `
       SELECT 
@@ -44,17 +44,17 @@ async function findOneByUsername(username) {
       FROM 
         users
       WHERE
-        LOWER(username) = LOWER($1)
+        cpf = $1
       LIMIT
         1
       ;`,
-      values: [username],
+      values: [cpf],
     });
 
     if (results.rowCount === 0) {
       throw new NotFoundError({
-        message: "Usuário não encontrado.",
-        action: "Verifique o nome de usuário informado.",
+        message: "CPF não encontrado.",
+        action: "Verifique o CPF informado.",
         status_code: 404,
       });
     }
@@ -94,7 +94,7 @@ async function findOneByEmail(email) {
 }
 
 async function create(userImputValues) {
-  await validateUniqueUsername(userImputValues.username);
+  await validateUniqueCPF(userImputValues.cpf);
   await validateUniqueEmail(userImputValues.email);
   await hashPasswordInObject(userImputValues);
   injectDefaultFeaturesInObject(userImputValues);
@@ -106,14 +106,14 @@ async function create(userImputValues) {
     const results = await database.query({
       text: `
       INSERT INTO 
-        users (username, email, password, features) 
+        users (cpf, email, password, features) 
       VALUES 
         ($1, $2, $3, $4)
       RETURNING 
         *
       ;`,
       values: [
-        userImputValues.username,
+        userImputValues.cpf,
         userImputValues.email,
         userImputValues.password,
         userImputValues.features,
@@ -127,11 +127,11 @@ async function create(userImputValues) {
   }
 }
 
-async function update(username, userInputValues) {
-  const currentUser = await findOneByUsername(username);
+async function update(id, userInputValues) {
+  const currentUser = await findOneById(id);
 
-  if ("username" in userInputValues) {
-    await validateUniqueUsername(userInputValues.username);
+  if ("cpf" in userInputValues) {
+    await validateUniqueCPF(userInputValues.cpf);
   }
 
   if ("email" in userInputValues) {
@@ -153,7 +153,7 @@ async function update(username, userInputValues) {
       UPDATE
         users
       SET
-        username = $2,
+        cpf = $2,
         email = $3,
         password = $4,
         updated_at = timezone('utc'::text, now())
@@ -165,7 +165,7 @@ async function update(username, userInputValues) {
       `,
       values: [
         userWithNewValues.id,
-        userWithNewValues.username,
+        userWithNewValues.cpf,
         userWithNewValues.email,
         userWithNewValues.password,
       ],
@@ -174,22 +174,22 @@ async function update(username, userInputValues) {
   }
 }
 
-async function validateUniqueUsername(username) {
+async function validateUniqueCPF(cpf) {
   const results = await database.query({
     text: `
       SELECT 
-        username 
+        cpf 
       FROM 
         users
       WHERE
-        LOWER(username) = LOWER($1)
+        cpf = $1
       ;`,
-    values: [username],
+    values: [cpf],
   });
   if (results.rowCount > 0) {
     throw new ValidationError({
-      message: "Nome de usuário já está em uso.",
-      action: "Utilize outro nome de usuário para realizar esta operação.",
+      message: "CPF já está em uso.",
+      action: "Utilize outro CPF para realizar esta operação.",
     });
   }
 }
@@ -269,7 +269,7 @@ async function addFeatures(userId, features) {
 const user = {
   create,
   findOneById,
-  findOneByUsername,
+  findOneByCPF,
   findOneByEmail,
   update,
   setFeatures,

@@ -10,7 +10,7 @@ describe("models/authorization.js", () => {
     });
     test("Without `user.features`", () => {
       const createdUser = {
-        username: "UserWithoutFeatures",
+        email: "UserWithoutFeatures@mail.com",
       };
       expect(() => {
         authorization.can(createdUser);
@@ -39,7 +39,7 @@ describe("models/authorization.js", () => {
     });
     test("Without `user.features`", () => {
       const createdUser = {
-        username: "UserWithoutFeatures",
+        email: "UserWithoutFeatures@mail.com",
       };
       expect(() => {
         authorization.filterOutput(createdUser);
@@ -68,7 +68,7 @@ describe("models/authorization.js", () => {
 
       const resource = {
         id: 1,
-        username: "ResourceUser",
+        cpf: "78945612300",
         features: ["read:user"],
         created_at: "2026-01-01T00:00:00.000Z",
         updated_at: "2026-01-01T00:00:00.000Z",
@@ -83,7 +83,6 @@ describe("models/authorization.js", () => {
       );
       expect(result).toEqual({
         id: 1,
-        username: "ResourceUser",
         features: ["read:user"],
         created_at: "2026-01-01T00:00:00.000Z",
         updated_at: "2026-01-01T00:00:00.000Z",

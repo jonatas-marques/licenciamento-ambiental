@@ -5,16 +5,11 @@ exports.up = (pgm) => {
       primaryKey: true,
       default: pgm.func("gen_random_uuid()"),
     },
-    // Valores nulos representam cadastros incompletos
-    person_id: {
-      type: "uuid",
-      notNull: false,
-      unique: true,
-    },
-    //For reference, GitHub limits usernames to 39 characters.
-    username: {
-      type: "varchar(30)",
+    // Every user is a natural person, but not every natural person is a user.
+    cpf: {
+      type: "varchar(11)",
       notNull: true,
+      unique: true,
     },
     // Why 254 in lenghth? https://stackoverflow.com/a/1199238
     email: {
