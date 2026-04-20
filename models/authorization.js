@@ -22,6 +22,12 @@ const availableFeatures = [
   // STATUS
   "read:status",
   "read:status:all",
+
+  // PESSOA
+  "create:person",
+  "read:person",
+  "update:person",
+  "create:person_relation",
 ];
 
 function can(user, feature, resource) {
@@ -53,7 +59,6 @@ function filterOutput(user, feature, resource) {
   if (feature === "read:user") {
     return {
       id: resource.id,
-      username: resource.username,
       features: resource.features,
       created_at: resource.created_at,
       updated_at: resource.updated_at,
@@ -64,7 +69,7 @@ function filterOutput(user, feature, resource) {
     if (user.id === resource.id) {
       return {
         id: resource.id,
-        username: resource.username,
+        cpf: resource.cpf,
         email: resource.email,
         features: resource.features,
 
@@ -73,6 +78,7 @@ function filterOutput(user, feature, resource) {
       };
     }
   }
+
   if (feature === "read:session") {
     if (user.id === resource.user_id) {
       return {
@@ -85,6 +91,7 @@ function filterOutput(user, feature, resource) {
       };
     }
   }
+
   if (feature === "read:activation_token") {
     return {
       id: resource.id,
@@ -95,6 +102,7 @@ function filterOutput(user, feature, resource) {
       used_at: resource.used_at,
     };
   }
+
   if (feature === "read:migration") {
     return resource.map((migration) => {
       return {
@@ -104,6 +112,7 @@ function filterOutput(user, feature, resource) {
       };
     });
   }
+
   if (feature === "read:status") {
     const output = {
       updated_at: resource.updated_at,
@@ -120,6 +129,22 @@ function filterOutput(user, feature, resource) {
         resource.dependencies.database.version;
     }
     return output;
+  }
+
+  if (feature === "create:person") {
+    return resource;
+  }
+
+  if (feature === "read:person") {
+    return resource;
+  }
+
+  if (feature === "update:person") {
+    return resource;
+  }
+
+  if (feature === "create:person_relation") {
+    return resource;
   }
 }
 

@@ -1,13 +1,16 @@
 import database from "infra/database.js";
 import retry from "async-retry";
-import { faker } from "@faker-js/faker";
+import { fakerPT_BR as faker } from "@faker-js/faker";
 import migrator from "models/migrator.js";
 import user from "models/user.js";
 import session from "models/session.js";
 import activation from "models/activation";
 import webserver from "infra/webserver.js";
+import person from "models/person.js";
 
 const emailHttpUrl = `http://${process.env.EMAIL_HTTP_HOST}:${process.env.EMAIL_HTTP_PORT}`;
+
+//faker.setDefaultLocale("pt_BR");
 
 async function waitForAllServices() {
   await waitForWebService();
@@ -53,8 +56,8 @@ async function runPendingMigrations() {
 
 async function createUser(userObject) {
   return await user.create({
-    username:
-      userObject?.username || faker.internet.username().replace(/[_.-]/g, ""),
+    cpf:
+      userObject?.cpf || faker.string.numeric(11, { allowLeadingZeros: true }),
     email: userObject?.email || faker.internet.email(),
     password: userObject?.password || "validpassword",
   });
@@ -62,6 +65,14 @@ async function createUser(userObject) {
 
 async function createSession(userObject) {
   return await session.create(userObject.id);
+}
+
+async function createLegalPerson(personObject) {
+  return await person.createLegalPerson({
+    name: personObject?.name || faker.company.name().replace(/[_.-]/g, ""),
+    cnpj: personObject?.cnpj || faker.string.numeric(14),
+    created_by: personObject?.created_by || faker.string.uuid(),
+  });
 }
 
 async function deleteAllEmails() {
@@ -108,6 +119,7 @@ const orchestrator = {
   runPendingMigrations,
   createUser,
   createSession,
+  createLegalPerson,
   deleteAllEmails,
   getLastEmail,
   extractUUID,

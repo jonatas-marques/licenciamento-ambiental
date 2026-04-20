@@ -41,7 +41,7 @@ describe("DELETE /api/v1/sessions", () => {
       });
 
       const createdUser = await orchestrator.createUser({
-        username: "UserWithExpiredSession",
+        email: "UserWithExpiredSession@mail.com",
       });
 
       const sessionObject = await orchestrator.createSession(createdUser);

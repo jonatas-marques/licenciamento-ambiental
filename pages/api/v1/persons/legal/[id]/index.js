@@ -1,50 +1,51 @@
 import { createRouter } from "next-connect";
 import controller from "infra/controller.js";
-import user from "models/user.js";
+import person from "models/person.js";
 import authorization from "models/authorization.js";
 import { ForbiddenError } from "infra/errors.js";
 
 export default createRouter()
   .use(controller.injectAnonymousOrUser)
   .get(getHandler)
-  .patch(controller.canRequest("update:user"), patchHandler)
+  .patch(controller.canRequest("update:person"), patchHandler)
   .handler(controller.errorHandlers);
 
 async function getHandler(request, response) {
   const userTryingToGet = request.context.user;
-  const username = request.query.username;
-  const userFound = await user.findOneByUsername(username);
+  const legalPerson = request.query.id;
+  const personFound = await person.findLegalById(legalPerson);
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToGet,
-    "read:user",
-    userFound,
+    "read:person",
+    personFound,
   );
+
   return response.status(200).json(secureOutputValues);
 }
 
 async function patchHandler(request, response) {
-  const username = request.query.username;
+  const userTryingToPatch = request.context.user;
   const userInputValues = request.body;
 
-  // user, feature, resource
-  const userTryingToPatch = request.context.user;
-  const targetUser = await user.findOneByUsername(username);
+  const legalPerson = request.query.id;
+  const targetPerson = await person.findLegalById(legalPerson);
 
-  if (!authorization.can(userTryingToPatch, "update:user", targetUser)) {
+  if (!authorization.can(userTryingToPatch, "update:person", targetPerson)) {
     throw new ForbiddenError({
-      message: "Você não possui permissão para atualizar outro usuário.",
+      message: "Você não possui permissão para atualizar essa pessoa.",
       action:
-        "Verifique se você possui a feature necessária para atualizar outro usuário.",
+        "Verifique se você possui a feature necessária para atualizar essa pessoa.",
     });
   }
 
-  const updatedUser = await user.update(username, userInputValues);
+  const updatedPerson = await person.updateLegalPerson(userInputValues);
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPatch,
-    "read:user",
-    updatedUser,
+    "update:person",
+    updatedPerson,
   );
+
   return response.status(200).json(secureOutputValues);
 }
