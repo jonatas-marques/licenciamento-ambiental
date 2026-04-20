@@ -12,8 +12,8 @@ export default createRouter()
 
 async function getHandler(request, response) {
   const userTryingToGet = request.context.user;
-  const personId = request.query.id;
-  const personFound = await person.findOneById(personId);
+  const legalPerson = request.query.id;
+  const personFound = await person.findLegalById(legalPerson);
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToGet,
@@ -28,8 +28,8 @@ async function patchHandler(request, response) {
   const userTryingToPatch = request.context.user;
   const userInputValues = request.body;
 
-  const personId = request.query.id;
-  const targetPerson = await person.findOneById(personId);
+  const legalPerson = request.query.id;
+  const targetPerson = await person.findLegalById(legalPerson);
 
   if (!authorization.can(userTryingToPatch, "update:person", targetPerson)) {
     throw new ForbiddenError({
@@ -39,7 +39,7 @@ async function patchHandler(request, response) {
     });
   }
 
-  const updatedPerson = await person.update(personId, userInputValues);
+  const updatedPerson = await person.updateLegalPerson(userInputValues);
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPatch,

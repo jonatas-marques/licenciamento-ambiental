@@ -69,7 +69,6 @@ async function createSession(userObject) {
 
 async function createLegalPerson(personObject) {
   return await person.createLegalPerson({
-    id: personObject?.id || faker.string.uuid(),
     name: personObject?.name || faker.company.name().replace(/[_.-]/g, ""),
     cnpj: personObject?.cnpj || faker.string.numeric(14),
     created_by: personObject?.created_by || faker.string.uuid(),

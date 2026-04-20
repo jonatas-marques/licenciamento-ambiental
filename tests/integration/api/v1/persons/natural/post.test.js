@@ -19,10 +19,8 @@ describe("POST /api/v1/persons/natural", () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            name: "Fulano de Tal",
-            mother_name: "Beltrana de Tal",
-            birth_date: "1990-01-01",
             cpf: "03819247812",
+            name: "Fulano de Tal",
           }),
         },
       );
@@ -54,10 +52,8 @@ describe("POST /api/v1/persons/natural", () => {
             Cookie: `session_id=${userSessionObject.token}`,
           },
           body: JSON.stringify({
-            name: "Fulano de Tal",
-            mother_name: "Beltrana de Tal",
-            birth_date: "1990-01-01",
             cpf: "03819247812",
+            name: "Fulano de Tal",
           }),
         },
       );
@@ -68,14 +64,11 @@ describe("POST /api/v1/persons/natural", () => {
 
       expect(responseBody).toEqual({
         id: responseBody.id,
-        type: responseBody.type,
+        cpf: "03819247812",
         name: "Fulano de Tal",
         created_by: user.id,
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,
-        cpf: "03819247812",
-        birth_date: "1990-01-01T00:00:00.000Z", // ISO string format
-        mother_name: "Beltrana de Tal",
       });
 
       expect(uuidVersion(responseBody.id)).toBe(4);
@@ -97,10 +90,8 @@ describe("POST /api/v1/persons/natural", () => {
             Cookie: `session_id=${userSessionObject.token}`,
           },
           body: JSON.stringify({
-            name: "Nome da Pessoa 1",
-            mother_name: "Nome da Mãe da Pessoa 1",
-            birth_date: "1990-01-01",
             cpf: "00000000001",
+            name: "Nome da Pessoa 1",
           }),
         },
       );
@@ -116,11 +107,8 @@ describe("POST /api/v1/persons/natural", () => {
             Cookie: `session_id=${userSessionObject.token}`,
           },
           body: JSON.stringify({
-            name: "Nome da Pessoa 2",
-            mother_name: "Nome da Mãe da Pessoa 2",
-            birth_date: "1990-01-01",
             cpf: "00000000001", // Mesmo CPF do primeiro cadastro
-            created_by: user.id,
+            name: "Nome da Pessoa 2",
           }),
         },
       );

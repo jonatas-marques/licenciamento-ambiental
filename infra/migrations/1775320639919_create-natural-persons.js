@@ -3,17 +3,18 @@ exports.up = (pgm) => {
     id: {
       type: "uuid",
       primaryKey: true,
+      default: pgm.func("gen_random_uuid()"),
     },
     cpf: {
       type: "varchar(11)",
       notNull: true,
     },
-    birth_date: {
-      type: "date",
+    name: {
+      type: "varchar(254)",
       notNull: true,
     },
-    mother_name: {
-      type: "varchar(254)",
+    created_by: {
+      type: "uuid",
       notNull: true,
     },
     created_at: {

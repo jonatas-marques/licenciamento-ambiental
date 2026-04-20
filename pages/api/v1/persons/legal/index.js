@@ -14,12 +14,12 @@ async function postHandler(request, response) {
     ...request.body,
     created_by: userTryingToPost.id, // Vem do servidor, não do Cliente!
   };
-  const newPerson = await person.createLegalPerson(userInputValues);
+  const newLegalPerson = await person.createLegalPerson(userInputValues);
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPost,
     "create:person",
-    newPerson,
+    newLegalPerson,
   );
 
   return response.status(201).json(secureOutputValues);

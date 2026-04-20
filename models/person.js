@@ -1,9 +1,9 @@
 import database from "infra/database.js";
 import { ValidationError, NotFoundError } from "infra/errors.js";
 
-async function findOneById(id) {
-  const personFound = await runSelectQuery(id);
-  return personFound;
+async function findNaturalById(id) {
+  const naturalPersonFound = await runSelectQuery(id);
+  return naturalPersonFound;
 
   async function runSelectQuery(id) {
     const results = await database.query({
@@ -11,7 +11,7 @@ async function findOneById(id) {
       SELECT 
         * 
       FROM 
-        persons
+        natural_persons
       WHERE
         id = $1
       LIMIT
@@ -22,8 +22,38 @@ async function findOneById(id) {
     if (results.rowCount === 0) {
       throw new NotFoundError({
         name: "NotFoundError",
-        message: "Pessoa não encontrada.",
-        action: "Verifique o ID da pessoa informado.",
+        message: "Pessoa física não encontrada.",
+        action: "Verifique o ID da pessoa física informado.",
+        status_code: 404,
+      });
+    }
+    return results.rows[0];
+  }
+}
+
+async function findLegalById(id) {
+  const legalPersonFound = await runSelectQuery(id);
+  return legalPersonFound;
+
+  async function runSelectQuery(id) {
+    const results = await database.query({
+      text: `
+      SELECT 
+        * 
+      FROM 
+        legal_persons
+      WHERE
+        id = $1
+      LIMIT
+        1
+      ;`,
+      values: [id],
+    });
+    if (results.rowCount === 0) {
+      throw new NotFoundError({
+        name: "NotFoundError",
+        message: "Pessoa jurídica não encontrada.",
+        action: "Verifique o ID da pessoa jurídica informado.",
         status_code: 404,
       });
     }
@@ -90,85 +120,59 @@ async function findOneByCNPJ(cnpj) {
 }
 
 async function createNaturalPerson(userInputValues) {
-  const person = await insertPerson(
-    "pessoa física",
-    //falta implementar endereço e telefone
-    userInputValues.name,
-    userInputValues.created_by,
-  );
-  const naturalPerson = await insertNaturalPerson(
-    person.id,
-    userInputValues.cpf,
-    userInputValues.birth_date,
-    userInputValues.mother_name,
-  );
-  return {
-    ...person,
-    ...naturalPerson,
-  };
+  await validateUniqueCPF(userInputValues.cpf);
+
+  const newNaturalPerson = await runInsertQuery(userInputValues);
+  return newNaturalPerson;
+
+  async function runInsertQuery(userInputValues) {
+    const results = await database.query({
+      text: `
+    INSERT INTO 
+      natural_persons (cpf, name, created_by) 
+    VALUES 
+      ($1, $2, $3)
+    RETURNING 
+      *
+    ;`,
+      values: [
+        userInputValues.cpf,
+        userInputValues.name,
+        userInputValues.created_by,
+      ],
+    });
+    return results.rows[0];
+  }
 }
 
 async function createLegalPerson(userInputValues) {
-  const person = await insertPerson(
-    "pessoa jurídica",
-    userInputValues.name,
-    userInputValues.created_by,
-  );
-  const legalPerson = await insertLegalPerson(person.id, userInputValues.cnpj);
-  return {
-    ...person,
-    ...legalPerson,
-  };
-}
+  await validateUniqueCNPJ(userInputValues.cnpj);
+  await validateUniqueLegalName(userInputValues.name);
 
-async function insertPerson(type, name, createdBy) {
-  const results = await database.query({
-    text: `
-      INSERT INTO 
-        persons (type, name, created_by) 
-      VALUES 
-        ($1, $2, $3)
-      RETURNING 
-        *
-      ;`,
-    values: [type, name, createdBy],
-  });
-  return results.rows[0];
-}
+  const newLegalPerson = await runInsertQuery(userInputValues);
+  return newLegalPerson;
 
-async function insertNaturalPerson(personId, cpf, birthDate, motherName) {
-  await validateUniqueCpf(cpf);
-  const results = await database.query({
-    text: `
+  async function runInsertQuery(userInputValues) {
+    const results = await database.query({
+      text: `
     INSERT INTO 
-      natural_persons (id, cpf, birth_date, mother_name) 
+      legal_persons (cnpj, name, created_by) 
     VALUES 
-      ($1, $2, $3, $4)
+      ($1, $2, $3)
     RETURNING 
       *
     ;`,
-    values: [personId, cpf, birthDate, motherName],
-  });
-  return results.rows[0];
+      values: [
+        userInputValues.cnpj,
+        userInputValues.name,
+        userInputValues.created_by,
+      ],
+    });
+    return results.rows[0];
+  }
 }
 
-async function insertLegalPerson(personId, cnpj) {
-  await validateUniqueCnpj(cnpj);
-  const results = await database.query({
-    text: `
-    INSERT INTO 
-      legal_persons (id, cnpj) 
-    VALUES 
-      ($1, $2)
-    RETURNING 
-      *
-    ;`,
-    values: [personId, cnpj],
-  });
-  return results.rows[0];
-}
-
-async function validateUniqueCpf(cpf) {
+async function validateUniqueCPF(cpf) {
   const results = await database.query({
     text: `
       SELECT 
@@ -188,7 +192,7 @@ async function validateUniqueCpf(cpf) {
   }
 }
 
-async function validateUniqueCnpj(cnpj) {
+async function validateUniqueCNPJ(cnpj) {
   const results = await database.query({
     text: `
       SELECT 
@@ -228,32 +232,29 @@ async function validateUniqueLegalName(name) {
   }
 }
 
-async function update(personId, userInputValues) {
-  const currentPerson = await findOneById(personId);
+async function updateNaturalPerson(personId, userInputValues) {
+  const currentNaturalPerson = await findNaturalById(personId);
 
-  if ("name" in userInputValues) {
-    await validateUniqueLegalName(userInputValues.name);
+  if ("cpf" in userInputValues) {
+    await validateUniqueCPF(userInputValues.cpf);
   }
 
-  if ("cnpj" in userInputValues) {
-    await validateUniqueCnpj(userInputValues.cnpj);
-  }
-
-  const personWithNewValues = {
-    ...currentPerson,
+  const naturalPersonWithNewValues = {
+    ...currentNaturalPerson,
     ...userInputValues,
   };
 
-  const updatedPerson = await runUpdateQuery(personWithNewValues);
+  const updatedPerson = await runUpdateQuery(naturalPersonWithNewValues);
   return updatedPerson;
 
-  async function runUpdateQuery(userWithNewValues) {
+  async function runUpdateQuery(naturalPersonWithNewValues) {
     const results = await database.query({
       text: `
         UPDATE
-          persons
+          natural_persons
         SET
-          name = $2,
+          cpf = $2,
+          name = $3,
           updated_at = timezone('utc'::text, now())
         WHERE
           id = $1
@@ -261,19 +262,69 @@ async function update(personId, userInputValues) {
           *
         ;
         `,
-      values: [userWithNewValues.id, userWithNewValues.name],
+      values: [
+        naturalPersonWithNewValues.id,
+        naturalPersonWithNewValues.cpf,
+        naturalPersonWithNewValues.name,
+      ],
+    });
+    return results.rows[0];
+  }
+}
+
+async function updateLegalPerson(personId, userInputValues) {
+  const currentLegalPerson = await findLegalById(personId);
+
+  if ("name" in userInputValues) {
+    await validateUniqueLegalName(userInputValues.name);
+  }
+
+  if ("cnpj" in userInputValues) {
+    await validateUniqueCNPJ(userInputValues.cnpj);
+  }
+
+  const legalPersonWithNewValues = {
+    ...currentLegalPerson,
+    ...userInputValues,
+  };
+
+  const updatedPerson = await runUpdateQuery(legalPersonWithNewValues);
+  return updatedPerson;
+
+  async function runUpdateQuery(legalPersonWithNewValues) {
+    const results = await database.query({
+      text: `
+        UPDATE
+          legal_persons
+        SET
+          cnpj = $2,
+          name = $3,
+          updated_at = timezone('utc'::text, now())
+        WHERE
+          id = $1
+        RETURNING
+          *
+        ;
+        `,
+      values: [
+        legalPersonWithNewValues.id,
+        legalPersonWithNewValues.cnpj,
+        legalPersonWithNewValues.name,
+      ],
     });
     return results.rows[0];
   }
 }
 
 const person = {
-  createNaturalPerson,
-  createLegalPerson,
-  findOneById,
+  findLegalById,
+  findNaturalById,
   findOneByCPF,
   findOneByCNPJ,
-  update,
+  createNaturalPerson,
+  createLegalPerson,
+  updateNaturalPerson,
+  updateLegalPerson,
 };
 
 export default person;

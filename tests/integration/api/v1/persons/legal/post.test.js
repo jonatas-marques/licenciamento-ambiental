@@ -59,12 +59,11 @@ describe("POST /api/v1/persons/legal", () => {
 
       expect(responseBody).toEqual({
         id: responseBody.id,
-        type: "pessoa jurídica",
+        cnpj: "12345678000123",
         name: "Empresa Teste Ltda",
         created_by: user.id,
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,
-        cnpj: "12345678000123",
       });
 
       expect(uuidVersion(responseBody.id)).toBe(4);

@@ -10,7 +10,7 @@ beforeAll(async () => {
 
 describe("PATCH /api/v1/persons/legal/[id]", () => {
   describe("Anonymous user", () => {
-    test("With unique name", async () => {
+    test("Cannot update a legal person", async () => {
       const createdLegalPerson = await orchestrator.createLegalPerson();
 
       const response = await fetch(

@@ -23,12 +23,11 @@ describe("GET /api/v1/persons/legal/[id]", () => {
 
       expect(responseBody).toEqual({
         id: responseBody.id,
-        type: responseBody.type,
+        cnpj: responseBody.cnpj,
         name: responseBody.name,
         created_by: responseBody.created_by,
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,
-        cnpj: responseBody.cnpj,
       });
 
       expect(uuidVersion(responseBody.id)).toBe(4);
@@ -47,8 +46,8 @@ describe("GET /api/v1/persons/legal/[id]", () => {
 
       expect(responseBody).toEqual({
         name: "NotFoundError",
-        message: "Pessoa não encontrada.",
-        action: "Verifique o ID da pessoa informado.",
+        message: "Pessoa jurídica não encontrada.",
+        action: "Verifique o ID da pessoa jurídica informado.",
         status_code: 404,
       });
     });

@@ -3,9 +3,19 @@ exports.up = (pgm) => {
     id: {
       type: "uuid",
       primaryKey: true,
+      default: pgm.func("gen_random_uuid()"),
     },
     cnpj: {
       type: "varchar(14)",
+      notNull: true,
+    },
+    name: {
+      type: "varchar(254)",
+      notNull: true,
+      unique: true,
+    },
+    created_by: {
+      type: "uuid",
       notNull: true,
     },
     created_at: {

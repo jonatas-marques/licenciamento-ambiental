@@ -107,6 +107,7 @@ async function activateUserByUserId(userId) {
     "update:user",
     "create:person",
     "read:person",
+    "update:person",
   ]);
   return activatedUser;
 }
