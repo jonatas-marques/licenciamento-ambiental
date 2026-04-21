@@ -67,6 +67,14 @@ async function createSession(userObject) {
   return await session.create(userObject.id);
 }
 
+async function createNaturalPerson(personObject) {
+  return await person.createNaturalPerson({
+    name: personObject?.name || faker.person.fullName(),
+    cpf: personObject?.cpf || faker.string.numeric(11),
+    created_by: personObject?.created_by || faker.string.uuid(),
+  });
+}
+
 async function createLegalPerson(personObject) {
   return await person.createLegalPerson({
     name: personObject?.name || faker.company.name().replace(/[_.-]/g, ""),
@@ -119,6 +127,7 @@ const orchestrator = {
   runPendingMigrations,
   createUser,
   createSession,
+  createNaturalPerson,
   createLegalPerson,
   deleteAllEmails,
   getLastEmail,

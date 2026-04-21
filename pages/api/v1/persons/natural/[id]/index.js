@@ -12,13 +12,13 @@ export default createRouter()
 
 async function getHandler(request, response) {
   const userTryingToGet = request.context.user;
-  const legalPersonId = request.query.id;
-  const legalPersonFound = await person.findLegalById(legalPersonId);
+  const naturalPersonId = request.query.id;
+  const naturalPersonFound = await person.findNaturalById(naturalPersonId);
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToGet,
     "read:person",
-    legalPersonFound,
+    naturalPersonFound,
   );
 
   return response.status(200).json(secureOutputValues);
@@ -28,11 +28,11 @@ async function patchHandler(request, response) {
   const userTryingToPatch = request.context.user;
   const userInputValues = request.body;
 
-  const legalPersonId = request.query.id;
-  const targetLegalPerson = await person.findLegalById(legalPersonId);
+  const naturalPersonId = request.query.id;
+  const targetNaturalPerson = await person.findNaturalById(naturalPersonId);
 
   if (
-    !authorization.can(userTryingToPatch, "update:person", targetLegalPerson)
+    !authorization.can(userTryingToPatch, "update:person", targetNaturalPerson)
   ) {
     throw new ForbiddenError({
       message: "Você não possui permissão para atualizar essa pessoa.",
@@ -41,12 +41,13 @@ async function patchHandler(request, response) {
     });
   }
 
-  const updatedLegalPerson = await person.updateLegalPerson(userInputValues);
+  const updatedNaturalPerson =
+    await person.updateNaturalPerson(userInputValues);
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPatch,
     "update:person",
-    updatedLegalPerson,
+    updatedNaturalPerson,
   );
 
   return response.status(200).json(secureOutputValues);
