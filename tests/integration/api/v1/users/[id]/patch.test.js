@@ -205,9 +205,16 @@ describe("PATCH /api/v1/users/[id]", () => {
           "create:session",
           "read:session",
           "update:user",
+
+          // PERSON
           "create:person",
           "read:person",
           "update:person",
+
+          // PROJECT
+          "create:project",
+          "read:project",
+          "update:project",
         ],
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,
@@ -248,9 +255,16 @@ describe("PATCH /api/v1/users/[id]", () => {
           "create:session",
           "read:session",
           "update:user",
+
+          // PERSON
           "create:person",
           "read:person",
           "update:person",
+
+          // PROJECT
+          "create:project",
+          "read:project",
+          "update:project",
         ],
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,
@@ -295,9 +309,16 @@ describe("PATCH /api/v1/users/[id]", () => {
           "create:session",
           "read:session",
           "update:user",
+
+          // PERSON
           "create:person",
           "read:person",
           "update:person",
+
+          // PROJECT
+          "create:project",
+          "read:project",
+          "update:project",
         ],
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,

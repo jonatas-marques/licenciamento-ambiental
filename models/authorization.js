@@ -27,7 +27,11 @@ const availableFeatures = [
   "create:person",
   "read:person",
   "update:person",
-  "create:person_relation",
+
+  // PROJECT
+  "create:project",
+  "read:project",
+  "update:project",
 ];
 
 function can(user, feature, resource) {
@@ -131,10 +135,6 @@ function filterOutput(user, feature, resource) {
     return output;
   }
 
-  if (feature === "create:person") {
-    return resource;
-  }
-
   if (feature === "read:person") {
     return resource;
   }
@@ -143,7 +143,7 @@ function filterOutput(user, feature, resource) {
     return resource;
   }
 
-  if (feature === "create:person_relation") {
+  if (feature === "read:project") {
     return resource;
   }
 }

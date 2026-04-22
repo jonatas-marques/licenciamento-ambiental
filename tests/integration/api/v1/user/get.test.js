@@ -59,9 +59,16 @@ describe("GET /api/v1/user", () => {
           "create:session",
           "read:session",
           "update:user",
+
+          // PERSON
           "create:person",
           "read:person",
           "update:person",
+
+          // PROJECT
+          "create:project",
+          "read:project",
+          "update:project",
         ],
         created_at: createdUser.created_at.toISOString(),
         updated_at: activatedUser.updated_at.toISOString(),
@@ -130,9 +137,16 @@ describe("GET /api/v1/user", () => {
           "create:session",
           "read:session",
           "update:user",
+
+          // PERSON
           "create:person",
           "read:person",
           "update:person",
+
+          // PROJECT
+          "create:project",
+          "read:project",
+          "update:project",
         ],
         created_at: createdUser.created_at.toISOString(),
         updated_at: activatedUser.updated_at.toISOString(),

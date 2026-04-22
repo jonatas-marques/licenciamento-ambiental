@@ -7,6 +7,7 @@ import session from "models/session.js";
 import activation from "models/activation";
 import webserver from "infra/webserver.js";
 import person from "models/person.js";
+import project from "models/project.js";
 
 const emailHttpUrl = `http://${process.env.EMAIL_HTTP_HOST}:${process.env.EMAIL_HTTP_PORT}`;
 
@@ -83,6 +84,13 @@ async function createLegalPerson(personObject) {
   });
 }
 
+async function createProject(projectObject) {
+  return await project.create({
+    name: projectObject?.name || faker.company.name().replace(/[_.-]/g, ""),
+    created_by: projectObject?.created_by || faker.string.uuid(),
+  });
+}
+
 async function deleteAllEmails() {
   await fetch(`${emailHttpUrl}/messages`, {
     method: "DELETE",
@@ -129,6 +137,7 @@ const orchestrator = {
   createSession,
   createNaturalPerson,
   createLegalPerson,
+  createProject,
   deleteAllEmails,
   getLastEmail,
   extractUUID,
