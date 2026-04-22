@@ -41,11 +41,14 @@ async function patchHandler(request, response) {
     });
   }
 
-  const updatedLegalPerson = await person.updateLegalPerson(userInputValues);
+  const updatedLegalPerson = await person.updateLegalPerson(
+    legalPersonId,
+    userInputValues,
+  );
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPatch,
-    "update:person",
+    "read:person",
     updatedLegalPerson,
   );
 
