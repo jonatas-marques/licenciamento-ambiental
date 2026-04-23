@@ -139,10 +139,6 @@ function filterOutput(user, feature, resource) {
     return resource;
   }
 
-  if (feature === "update:person") {
-    return resource;
-  }
-
   if (feature === "read:project") {
     return resource;
   }
