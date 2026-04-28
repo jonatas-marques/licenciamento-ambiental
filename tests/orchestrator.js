@@ -84,10 +84,16 @@ async function createLegalPerson(personObject) {
   });
 }
 
-async function createProject(projectObject) {
+async function createProject(projectObject = {}) {
+  let createdBy = projectObject.created_by;
+  if (!createdBy) {
+    const userObj = await createUser();
+    createdBy = userObj.id;
+  }
   return await project.create({
+    ...projectObject,
     name: projectObject?.name || faker.company.name().replace(/[_.-]/g, ""),
-    created_by: projectObject?.created_by || faker.string.uuid(),
+    created_by: createdBy,
   });
 }
 
