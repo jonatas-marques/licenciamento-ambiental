@@ -5,6 +5,8 @@ import {
   ForbiddenError,
 } from "infra/errors.js";
 
+const allowedMemberRoles = ["owner", "admin", "member", "viewer"];
+
 async function findOneById(projectId) {
   const results = await database.query({
     text: `
@@ -240,17 +242,6 @@ async function validateUniqueMember(projectId, memberId) {
     });
   }
 }
-// similar to authorization.can() but specific for project members
-function toBe(member, role) {
-  let authorized = false;
-
-  if (member.role === role) {
-    authorized = true;
-  }
-
-  return authorized;
-}
-const allowedMemberRoles = ["owner", "admin", "member", "viewer"];
 
 function validateMemberRole(role) {
   if (!allowedMemberRoles.includes(role)) {
