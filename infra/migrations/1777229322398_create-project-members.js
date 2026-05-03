@@ -39,6 +39,10 @@ exports.up = (pgm) => {
   pgm.createConstraint("project_members", "valid_to_check", {
     check: "valid_to IS NULL OR valid_to >= valid_from",
   });
+
+  pgm.addConstraint("project_members", "project_members_project_user_unique", {
+    unique: ["project_id", "user_id"],
+  });
 };
 
 exports.down = false;

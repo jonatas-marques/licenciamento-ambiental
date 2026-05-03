@@ -62,6 +62,7 @@ async function findOneByCPF(cpf) {
     return results.rows[0];
   }
 }
+
 async function findOneByEmail(email) {
   const userFound = await runSelectQuery(email);
   return userFound;

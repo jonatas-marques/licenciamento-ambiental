@@ -11,9 +11,12 @@ beforeAll(async () => {
 describe("GET /api/v1/projects/[id]", () => {
   describe("Anonymous user", () => {
     test("With valid `id`", async () => {
-      const project = await orchestrator.createProject({
-        name: "Test Project",
-      });
+      const project = await orchestrator.createProject(
+        {},
+        {
+          name: "Test Project",
+        },
+      );
 
       const response = await fetch(
         `${webserver.origin}/api/v1/projects/${project.id}`,

@@ -1,5 +1,9 @@
 import database from "infra/database.js";
-import { ValidationError, NotFoundError } from "infra/errors.js";
+import {
+  ValidationError,
+  NotFoundError,
+  ForbiddenError,
+} from "infra/errors.js";
 
 async function findOneById(projectId) {
   const results = await database.query({
@@ -25,13 +29,29 @@ async function findOneById(projectId) {
   return results.rows[0];
 }
 
-async function create(projectObject) {
-  await validateUniqueName(projectObject.name);
+async function create(newProjectInputValues) {
+  await validateUniqueName(newProjectInputValues.name);
 
-  const createdProject = await runInsertQuery(projectObject);
+  const createdProject = await runInsertQueryIntoProjects(
+    newProjectInputValues,
+  );
+
+  const projectCreatorMembershipValues = {
+    project_id: createdProject.id,
+    user_id: newProjectInputValues.created_by,
+    role: "owner",
+  };
+  await runInsertQueryIntoProjectMembers(projectCreatorMembershipValues);
+  /**
+   * First user to create the project is the owner, so we add
+   * the project creator as a member with the "owner" role.
+   */
+  // Alternativamente rodar insertQuery ? Pode necessitar try para nao criar membros ou projetso órfãos
+  // const createdProjectMember = await runInsertQueryIntoProjectMembers(createdProject);
+
   return createdProject;
 
-  async function runInsertQuery(projectObject) {
+  async function runInsertQueryIntoProjects(newProjectInputValues) {
     const results = await database.query({
       text: `
         INSERT INTO 
@@ -41,7 +61,27 @@ async function create(projectObject) {
         RETURNING 
             *
         ;`,
-      values: [projectObject.name, projectObject.created_by],
+      values: [newProjectInputValues.name, newProjectInputValues.created_by],
+    });
+    return results.rows[0];
+  }
+  async function runInsertQueryIntoProjectMembers(
+    projectCreatorMembershipValues,
+  ) {
+    const results = await database.query({
+      text: `
+        INSERT INTO 
+            project_members (project_id, user_id, role) 
+        VALUES 
+            ($1, $2, $3)
+        RETURNING 
+            *
+        ;`,
+      values: [
+        projectCreatorMembershipValues.project_id,
+        projectCreatorMembershipValues.user_id,
+        projectCreatorMembershipValues.role,
+      ],
     });
     return results.rows[0];
   }
@@ -101,11 +141,126 @@ async function update(id, userInputValues) {
   }
 }
 
+async function getMembership(projectId, member) {
+  const membershipFound = await runSelectQuery(projectId, member);
+  return membershipFound;
+
+  async function runSelectQuery(projectId, member) {
+    const results = await database.query({
+      text: `
+      SELECT 
+        *
+      FROM 
+        project_members
+      WHERE 
+        project_id = $1 AND user_id = $2
+      LIMIT
+        1
+      ;`,
+      values: [projectId, member.id],
+    });
+    if (results.rowCount === 0) {
+      throw new NotFoundError({
+        name: "NotFoundError",
+        message: "Membro do projeto não encontrado.",
+        action: "Verifique o ID do projeto e do usuário informado.",
+        status_code: 404,
+      });
+    }
+    return results.rows[0];
+  }
+}
+
+async function addMember(requestingUser, userInputValues) {
+  // `add` means `create` membership
+  // validade unique member for the project
+  await validateUniqueMember(
+    // Pode refatorar para utilizar o getMebership()
+    userInputValues.project_id,
+    userInputValues.user_id,
+  );
+
+  const memberTryingToAdd = await getMembership(
+    userInputValues.project_id,
+    requestingUser,
+  );
+
+  if (!["owner", "admin"].includes(memberTryingToAdd.role)) {
+    throw new ForbiddenError({
+      name: "ForbiddenError",
+      message: "Você não possui permissão para adicionar membros ao projeto.",
+      action:
+        "Apenas usuários com role 'owner' ou 'admin' podem adicionar membros.",
+      status_code: 403,
+    });
+  }
+  // Implementation for inserting member into project_members table.
+  const addedMember = await runInsertQuery(userInputValues);
+  return addedMember;
+
+  async function runInsertQuery(userInputValues) {
+    const results = await database.query({
+      text: `
+        INSERT INTO 
+            project_members (project_id, user_id, role) 
+        VALUES 
+            ($1, $2, $3)
+        RETURNING 
+            *
+        ;`,
+      values: [
+        userInputValues.project_id,
+        userInputValues.user_id,
+        userInputValues.role,
+      ],
+    });
+    return results.rows[0];
+  }
+}
+
+async function validateUniqueMember(projectId, memberId) {
+  const results = await database.query({
+    text: `
+      SELECT 
+        id
+      FROM 
+        project_members
+      WHERE 
+        project_id = $1 AND user_id = $2
+      ;`,
+    values: [projectId, memberId],
+  });
+
+  if (results.rowCount > 0) {
+    throw new ValidationError({
+      name: "ValidationError",
+      message: "Usuário já é membro do projeto.",
+      action: "Tente adicionar outro usuário ao projeto.",
+      status_code: 400,
+    });
+  }
+}
+
+// similar to authorization.can() but specific for project members
+async function toBe(member, role) {
+  let authorized = false;
+
+  if (member.role === role) {
+    authorized = true;
+  }
+
+  return authorized;
+}
+
 const project = {
+  toBe,
   create,
   update,
   findOneById,
+  getMembership,
   validateUniqueName,
+  addMember,
+  validateUniqueMember,
 };
 
 export default project;

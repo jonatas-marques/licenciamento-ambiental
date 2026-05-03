@@ -97,6 +97,10 @@ async function createProject(projectObject = {}) {
   });
 }
 
+async function addMemberToProject(adddingMember, memberValues) {
+  return await project.addMember(adddingMember, memberValues);
+}
+
 async function deleteAllEmails() {
   await fetch(`${emailHttpUrl}/messages`, {
     method: "DELETE",
@@ -149,6 +153,7 @@ const orchestrator = {
   extractUUID,
   activateUser,
   addFeaturesToUser,
+  addMemberToProject,
 };
 
 export default orchestrator;
