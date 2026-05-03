@@ -2,7 +2,6 @@ import { createRouter } from "next-connect";
 import controller from "infra/controller.js";
 import project from "models/project.js";
 import authorization from "models/authorization.js";
-import user from "../user";
 
 export default createRouter()
   .use(controller.injectAnonymousOrUser)
