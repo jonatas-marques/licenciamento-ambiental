@@ -5,8 +5,24 @@ import authorization from "models/authorization.js";
 
 export default createRouter()
   .use(controller.injectAnonymousOrUser)
+  .get(controller.canRequest("read:project"), getHandler)
   .post(controller.canRequest("create:project"), postHandler)
   .handler(controller.errorHandlers);
+
+async function getHandler(request, response) {
+  const userTryingToGet = request.context.user;
+  const projectId = request.query.id;
+
+  const members = await project.listMembers(userTryingToGet, projectId);
+
+  const secureOutputValues = authorization.filterOutput(
+    userTryingToGet,
+    "read:project",
+    members,
+  );
+
+  return response.status(200).json(secureOutputValues);
+}
 
 async function postHandler(request, response) {
   const userTryingToPost = request.context.user;

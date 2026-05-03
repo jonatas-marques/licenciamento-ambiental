@@ -240,9 +240,8 @@ async function validateUniqueMember(projectId, memberId) {
     });
   }
 }
-
 // similar to authorization.can() but specific for project members
-async function toBe(member, role) {
+function toBe(member, role) {
   let authorized = false;
 
   if (member.role === role) {
@@ -251,9 +250,225 @@ async function toBe(member, role) {
 
   return authorized;
 }
+const allowedMemberRoles = ["owner", "admin", "member", "viewer"];
+
+function validateMemberRole(role) {
+  if (!allowedMemberRoles.includes(role)) {
+    throw new ValidationError({
+      message: "Role inválida para membro do projeto.",
+      action: `Use um destes valores: ${allowedMemberRoles.join(", ")}.`,
+    });
+  }
+}
+
+async function getMembershipByUserId(projectId, userId) {
+  const results = await database.query({
+    text: `
+      SELECT *
+      FROM project_members
+      WHERE project_id = $1
+        AND user_id = $2
+        AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
+      LIMIT 1;
+    `,
+    values: [projectId, userId],
+  });
+
+  if (results.rowCount === 0) {
+    throw new NotFoundError({
+      message: "Membro do projeto não encontrado.",
+      action: "Verifique o ID do projeto e do usuário informado.",
+      status_code: 404,
+    });
+  }
+
+  return results.rows[0];
+}
+
+async function ensureRequesterIsMemberOrThrowForbidden(
+  projectId,
+  requestingUser,
+) {
+  try {
+    await getMembershipByUserId(projectId, requestingUser.id);
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      throw new ForbiddenError({
+        message: "Você não é membro deste projeto.",
+        action: "Solicite acesso ao proprietário do projeto.",
+      });
+    }
+    throw error;
+  }
+}
+
+function ensureCanManageMembers(requesterMembership) {
+  if (!["owner", "admin"].includes(requesterMembership.role)) {
+    throw new ForbiddenError({
+      message: "Você não possui permissão para gerenciar membros do projeto.",
+      action:
+        "Apenas usuários com role 'owner' ou 'admin' podem gerenciar membros.",
+    });
+  }
+}
+
+function ensureCanManageOwner(requesterMembership) {
+  if (requesterMembership.role !== "owner") {
+    throw new ForbiddenError({
+      message: "Apenas o owner pode gerenciar outro owner.",
+      action: "Solicite ao proprietário do projeto para executar esta ação.",
+    });
+  }
+}
+
+async function listMembers(requestingUser, projectId) {
+  await findOneById(projectId);
+  await ensureRequesterIsMemberOrThrowForbidden(projectId, requestingUser);
+
+  const results = await database.query({
+    text: `
+      SELECT *
+      FROM project_members
+      WHERE project_id = $1
+        AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
+      ORDER BY valid_from ASC;
+    `,
+    values: [projectId],
+  });
+
+  return results.rows;
+}
+
+async function getMember(requestingUser, projectId, userId) {
+  await findOneById(projectId);
+  await ensureRequesterIsMemberOrThrowForbidden(projectId, requestingUser);
+  return await getMembershipByUserId(projectId, userId);
+}
+
+async function updateMember(requestingUser, projectId, userId, patchValues) {
+  await findOneById(projectId);
+
+  const requesterMembership = await getMembershipByUserId(
+    projectId,
+    requestingUser.id,
+  );
+  ensureCanManageMembers(requesterMembership);
+
+  const targetMembership = await getMembershipByUserId(projectId, userId);
+
+  // Se estiver mexendo com owner (alterar role de owner ou alterar alguém para owner), só owner pode.
+  if (targetMembership.role === "owner") {
+    ensureCanManageOwner(requesterMembership);
+  }
+  if ("role" in patchValues && patchValues.role === "owner") {
+    ensureCanManageOwner(requesterMembership);
+  }
+
+  const fields = [];
+  const values = [projectId, userId];
+  let nextIndex = 3;
+
+  if ("role" in patchValues) {
+    validateMemberRole(patchValues.role);
+    fields.push(`role = $${nextIndex++}`);
+    values.push(patchValues.role);
+  }
+
+  if ("valid_to" in patchValues) {
+    const validTo = patchValues.valid_to;
+
+    if (validTo !== null) {
+      const parsed = Date.parse(validTo);
+      if (Number.isNaN(parsed)) {
+        throw new ValidationError({
+          message: "valid_to inválido.",
+          action:
+            "Envie uma data ISO válida (ex.: 2026-05-03T20:00:00.000Z) ou null.",
+        });
+      }
+
+      const validFromParsed = Date.parse(targetMembership.valid_from);
+      if (!Number.isNaN(validFromParsed) && parsed < validFromParsed) {
+        throw new ValidationError({
+          message: "valid_to não pode ser anterior a valid_from.",
+          action: "Ajuste a data e tente novamente.",
+        });
+      }
+    }
+
+    fields.push(`valid_to = $${nextIndex++}`);
+    values.push(validTo);
+  }
+
+  if (fields.length === 0) {
+    throw new ValidationError({
+      message: "Nenhum campo para atualizar.",
+      action: "Envie ao menos 'role' ou 'valid_to' no body.",
+    });
+  }
+
+  const results = await database.query({
+    text: `
+      UPDATE project_members
+      SET ${fields.join(", ")}
+      WHERE project_id = $1 AND user_id = $2
+      RETURNING *;
+    `,
+    values,
+  });
+
+  if (results.rowCount === 0) {
+    throw new NotFoundError({
+      message: "Membro do projeto não encontrado.",
+      action: "Verifique o ID do projeto e do usuário informado.",
+      status_code: 404,
+    });
+  }
+
+  return results.rows[0];
+}
+
+async function removeMember(requestingUser, projectId, userId) {
+  await findOneById(projectId);
+
+  const requesterMembership = await getMembershipByUserId(
+    projectId,
+    requestingUser.id,
+  );
+  ensureCanManageMembers(requesterMembership);
+
+  const targetMembership = await getMembershipByUserId(projectId, userId);
+
+  // Remover owner: só owner pode
+  if (targetMembership.role === "owner") {
+    ensureCanManageOwner(requesterMembership);
+  }
+
+  const results = await database.query({
+    text: `
+      DELETE FROM project_members
+      WHERE project_id = $1 AND user_id = $2
+      RETURNING *;
+    `,
+    values: [projectId, userId],
+  });
+
+  if (results.rowCount === 0) {
+    throw new NotFoundError({
+      message: "Membro do projeto não encontrado.",
+      action: "Verifique o ID do projeto e do usuário informado.",
+      status_code: 404,
+    });
+  }
+
+  return results.rows[0];
+}
 
 const project = {
-  toBe,
+  listMembers,
+  getMember,
+  updateMember,
+  removeMember,
   create,
   update,
   findOneById,
