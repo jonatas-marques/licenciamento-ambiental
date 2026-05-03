@@ -316,6 +316,194 @@ async function updateLegalPerson(personId, userInputValues) {
   }
 }
 
+async function validateUniqueLegalPersonMember(legalPersonId, naturalPersonId) {
+  const results = await database.query({
+    text: `
+      SELECT id
+      FROM legal_person_members
+      WHERE legal_person_id = $1
+        AND natural_person_id = $2
+      LIMIT 1;
+    `,
+    values: [legalPersonId, naturalPersonId],
+  });
+
+  if (results.rowCount > 0) {
+    throw new ValidationError({
+      message: "Pessoa já está vinculada a esta pessoa jurídica.",
+      action:
+        "Tente vincular outra pessoa física ou remova o vínculo existente.",
+    });
+  }
+}
+
+function validateMemberRole(role) {
+  if (!role || typeof role !== "string" || role.length > 32) {
+    throw new ValidationError({
+      message: "Role inválida.",
+      action: "Envie um texto (até 32 caracteres) em 'role'.",
+    });
+  }
+}
+
+async function listLegalPersonMembers(legalPersonId) {
+  await findLegalById(legalPersonId);
+
+  const results = await database.query({
+    text: `
+      SELECT *
+      FROM legal_person_members
+      WHERE legal_person_id = $1
+        AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
+      ORDER BY valid_from ASC;
+    `,
+    values: [legalPersonId],
+  });
+
+  return results.rows;
+}
+
+async function getLegalPersonMember(legalPersonId, naturalPersonId) {
+  await findLegalById(legalPersonId);
+  await findNaturalById(naturalPersonId);
+
+  const results = await database.query({
+    text: `
+      SELECT *
+      FROM legal_person_members
+      WHERE legal_person_id = $1
+        AND natural_person_id = $2
+        AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
+      LIMIT 1;
+    `,
+    values: [legalPersonId, naturalPersonId],
+  });
+
+  if (results.rowCount === 0) {
+    throw new NotFoundError({
+      name: "NotFoundError",
+      message: "Vínculo não encontrado.",
+      action: "Verifique os IDs informados.",
+      status_code: 404,
+    });
+  }
+
+  return results.rows[0];
+}
+
+async function addLegalPersonMember({
+  legal_person_id,
+  natural_person_id,
+  role,
+}) {
+  await findLegalById(legal_person_id);
+  await findNaturalById(natural_person_id);
+  validateMemberRole(role);
+  await validateUniqueLegalPersonMember(legal_person_id, natural_person_id);
+
+  const results = await database.query({
+    text: `
+      INSERT INTO legal_person_members (legal_person_id, natural_person_id, role)
+      VALUES ($1, $2, $3)
+      RETURNING *;
+    `,
+    values: [legal_person_id, natural_person_id, role],
+  });
+
+  return results.rows[0];
+}
+
+async function updateLegalPersonMember(
+  legalPersonId,
+  naturalPersonId,
+  patchValues,
+) {
+  await findLegalById(legalPersonId);
+  await findNaturalById(naturalPersonId);
+
+  // garante que existe
+  const current = await getLegalPersonMember(legalPersonId, naturalPersonId);
+
+  const fields = [];
+  const values = [legalPersonId, naturalPersonId];
+  let idx = 3;
+
+  if ("role" in patchValues) {
+    validateMemberRole(patchValues.role);
+    fields.push(`role = $${idx++}`);
+    values.push(patchValues.role);
+  }
+
+  if ("valid_to" in patchValues) {
+    const validTo = patchValues.valid_to;
+
+    if (validTo !== null) {
+      const parsed = Date.parse(validTo);
+      if (Number.isNaN(parsed)) {
+        throw new ValidationError({
+          message: "valid_to inválido.",
+          action: "Envie uma data ISO válida ou null.",
+        });
+      }
+
+      const validFromParsed = Date.parse(current.valid_from);
+      if (!Number.isNaN(validFromParsed) && parsed < validFromParsed) {
+        throw new ValidationError({
+          message: "valid_to não pode ser anterior a valid_from.",
+          action: "Ajuste a data e tente novamente.",
+        });
+      }
+    }
+
+    fields.push(`valid_to = $${idx++}`);
+    values.push(validTo);
+  }
+
+  if (fields.length === 0) {
+    throw new ValidationError({
+      message: "Nenhum campo para atualizar.",
+      action: "Envie ao menos 'role' ou 'valid_to' no body.",
+    });
+  }
+
+  const results = await database.query({
+    text: `
+      UPDATE legal_person_members
+      SET ${fields.join(", ")}
+      WHERE legal_person_id = $1 AND natural_person_id = $2
+      RETURNING *;
+    `,
+    values,
+  });
+
+  return results.rows[0];
+}
+
+async function removeLegalPersonMember(legalPersonId, naturalPersonId) {
+  await findLegalById(legalPersonId);
+  await findNaturalById(naturalPersonId);
+
+  const results = await database.query({
+    text: `
+      DELETE FROM legal_person_members
+      WHERE legal_person_id = $1 AND natural_person_id = $2
+      RETURNING *;
+    `,
+    values: [legalPersonId, naturalPersonId],
+  });
+
+  if (results.rowCount === 0) {
+    throw new NotFoundError({
+      name: "NotFoundError",
+      message: "Vínculo não encontrado.",
+      action: "Verifique os IDs informados.",
+      status_code: 404,
+    });
+  }
+
+  return results.rows[0];
+}
+
 const person = {
   findLegalById,
   findNaturalById,
@@ -325,6 +513,13 @@ const person = {
   createLegalPerson,
   updateNaturalPerson,
   updateLegalPerson,
+
+  // NEW: legal_person_members
+  listLegalPersonMembers,
+  getLegalPersonMember,
+  addLegalPersonMember,
+  updateLegalPersonMember,
+  removeLegalPersonMember,
 };
 
 export default person;

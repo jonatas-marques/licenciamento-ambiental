@@ -31,9 +31,21 @@ exports.up = (pgm) => {
       notNull: false,
     },
   });
+
+  pgm.createIndex("legal_person_members", "legal_person_id");
+  pgm.createIndex("legal_person_members", "natural_person_id");
+
   pgm.createConstraint("legal_person_members", "valid_to_check", {
     check: "valid_to IS NULL OR valid_to >= valid_from",
   });
+
+  pgm.createConstraint(
+    "legal_person_members",
+    "legal_person_members_legal_natural_unique",
+    {
+      unique: ["legal_person_id", "natural_person_id"],
+    },
+  );
 };
 
 exports.down = false;
