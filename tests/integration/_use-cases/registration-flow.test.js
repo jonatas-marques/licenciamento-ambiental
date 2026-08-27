@@ -78,9 +78,16 @@ describe("Use Case: Registration Flow (all sucessful)", () => {
       "create:session",
       "read:session",
       "update:user",
+
+      // PERSON
       "create:person",
       "read:person",
       "update:person",
+
+      // PROJECT
+      "create:project",
+      "read:project",
+      "update:project",
     ]);
   });
 

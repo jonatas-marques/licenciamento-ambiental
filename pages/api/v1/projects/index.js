@@ -1,25 +1,27 @@
 import { createRouter } from "next-connect";
 import controller from "infra/controller.js";
-import person from "models/person.js";
+import project from "models/project.js";
 import authorization from "models/authorization.js";
 
 export default createRouter()
   .use(controller.injectAnonymousOrUser)
-  .post(controller.canRequest("create:person"), postHandler)
+  .post(controller.canRequest("create:project"), postHandler)
   .handler(controller.errorHandlers);
 
 async function postHandler(request, response) {
   const userTryingToPost = request.context.user;
-  const userInputValues = {
-    ...request.body,
+  const userInputValues = request.body;
+  const projectInputValues = {
+    ...userInputValues,
     created_by: userTryingToPost.id, // Vem do servidor, não do Cliente!
   };
-  const newLegalPerson = await person.createLegalPerson(userInputValues);
+
+  const newProject = await project.create(projectInputValues);
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPost,
-    "read:person",
-    newLegalPerson,
+    "read:project",
+    newProject,
   );
 
   return response.status(201).json(secureOutputValues);

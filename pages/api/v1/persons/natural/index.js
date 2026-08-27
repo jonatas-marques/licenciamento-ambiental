@@ -18,7 +18,7 @@ async function postHandler(request, response) {
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPost,
-    "create:person",
+    "read:person",
     newPerson,
   );
 

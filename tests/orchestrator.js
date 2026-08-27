@@ -7,6 +7,7 @@ import session from "models/session.js";
 import activation from "models/activation";
 import webserver from "infra/webserver.js";
 import person from "models/person.js";
+import project from "models/project.js";
 
 const emailHttpUrl = `http://${process.env.EMAIL_HTTP_HOST}:${process.env.EMAIL_HTTP_PORT}`;
 
@@ -83,6 +84,23 @@ async function createLegalPerson(personObject) {
   });
 }
 
+async function createProject(projectObject = {}) {
+  let createdBy = projectObject.created_by;
+  if (!createdBy) {
+    const userObj = await createUser();
+    createdBy = userObj.id;
+  }
+  return await project.create({
+    ...projectObject,
+    name: projectObject?.name || faker.company.name().replace(/[_.-]/g, ""),
+    created_by: createdBy,
+  });
+}
+
+async function addMemberToProject(adddingMember, memberValues) {
+  return await project.addMember(adddingMember, memberValues);
+}
+
 async function deleteAllEmails() {
   await fetch(`${emailHttpUrl}/messages`, {
     method: "DELETE",
@@ -129,11 +147,13 @@ const orchestrator = {
   createSession,
   createNaturalPerson,
   createLegalPerson,
+  createProject,
   deleteAllEmails,
   getLastEmail,
   extractUUID,
   activateUser,
   addFeaturesToUser,
+  addMemberToProject,
 };
 
 export default orchestrator;

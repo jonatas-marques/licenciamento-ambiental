@@ -7,32 +7,33 @@ import { ForbiddenError } from "infra/errors.js";
 export default createRouter()
   .use(controller.injectAnonymousOrUser)
   .get(getHandler)
-  .patch(controller.canRequest("update:person"), patchHandler)
+  .post(controller.canRequest("update:person"), postHandler)
   .handler(controller.errorHandlers);
 
 async function getHandler(request, response) {
   const userTryingToGet = request.context.user;
   const legalPersonId = request.query.id;
-  const legalPersonFound = await person.findLegalById(legalPersonId);
+
+  const members = await person.listLegalPersonMembers(legalPersonId);
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToGet,
     "read:person",
-    legalPersonFound,
+    members,
   );
 
   return response.status(200).json(secureOutputValues);
 }
 
-async function patchHandler(request, response) {
-  const userTryingToPatch = request.context.user;
-  const userInputValues = request.body;
-
+async function postHandler(request, response) {
+  const userTryingToPost = request.context.user;
   const legalPersonId = request.query.id;
-  const targetLegalPerson = await person.findLegalById(legalPersonId);
 
+  // padrão do seu PATCH /persons/legal/[id]:
+  // confirma que o user tem a feature update:person (gated + can())
+  const targetLegalPerson = await person.findLegalById(legalPersonId);
   if (
-    !authorization.can(userTryingToPatch, "update:person", targetLegalPerson)
+    !authorization.can(userTryingToPost, "update:person", targetLegalPerson)
   ) {
     throw new ForbiddenError({
       message: "Você não possui permissão para atualizar essa pessoa.",
@@ -41,16 +42,19 @@ async function patchHandler(request, response) {
     });
   }
 
-  const updatedLegalPerson = await person.updateLegalPerson(
-    legalPersonId,
-    userInputValues,
-  );
+  const userInputValues = request.body;
+
+  const createdMembership = await person.addLegalPersonMember({
+    legal_person_id: legalPersonId, // vem da rota
+    natural_person_id: userInputValues.natural_person_id,
+    role: userInputValues.role,
+  });
 
   const secureOutputValues = authorization.filterOutput(
-    userTryingToPatch,
+    userTryingToPost,
     "read:person",
-    updatedLegalPerson,
+    createdMembership,
   );
 
-  return response.status(200).json(secureOutputValues);
+  return response.status(201).json(secureOutputValues);
 }
