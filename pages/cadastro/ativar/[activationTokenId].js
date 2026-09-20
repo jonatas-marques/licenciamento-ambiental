@@ -18,9 +18,12 @@ export default function ActivateUserPage() {
 
     async function sendActivationRequest() {
       try {
-        const response = await fetch(`/api/activate/${activationTokenId}`, {
-          method: "PATCH",
-        });
+        const response = await fetch(
+          `/api/v1/activations/${activationTokenId}`,
+          {
+            method: "PATCH",
+          },
+        );
 
         const activationResponseBody = await response.json();
 
