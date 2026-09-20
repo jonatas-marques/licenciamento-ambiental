@@ -69,7 +69,7 @@ export default function ActivateUserPage() {
 
       {activationStatus === "failure" && (
         <Banner variant="critical">
-          <Banner.Title>Não foi possível ativar o seu cadastro</Banner.Title>
+          <Banner.Title>Não foi possível ativar o seu cadastro.</Banner.Title>
           <Banner.Description>{errorMessage}</Banner.Description>
         </Banner>
       )}
