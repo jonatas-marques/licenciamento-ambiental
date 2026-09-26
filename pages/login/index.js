@@ -8,6 +8,7 @@ import {
   Banner,
 } from "@primer/react";
 import DefaultLayout from "../../interface/DefaultLayout";
+import Link from "next/link";
 
 export default function LoginPage() {
   return (
@@ -128,11 +129,12 @@ function LoginForm() {
 
         <Stack.Item>
           <span>
-            Novo no EcoTab? <a href="/cadastro">Crie sua conta</a>.
+            Novo no EcoTab? <Link href="/cadastro">Crie sua conta</Link>.
           </span>
           <br></br>
           <span>
-            Esqueceu sua senha? <a href="/cadastro/recuperar">Clique aqui</a>.
+            Esqueceu sua senha?{" "}
+            <Link href="/cadastro/recuperar">Clique aqui</Link>.
           </span>
         </Stack.Item>
       </Stack>

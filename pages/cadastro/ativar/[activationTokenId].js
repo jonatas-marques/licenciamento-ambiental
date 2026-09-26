@@ -1,6 +1,7 @@
 import { Banner } from "@primer/react";
 import DefaultLayout from "interface/DefaultLayout";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function ActivateUserPage() {
@@ -62,7 +63,7 @@ export default function ActivateUserPage() {
           <Banner.Title>Cadastro ativado com sucesso!</Banner.Title>
           <Banner.Description>
             Sua conta está ativada e você já pode{" "}
-            <a href="/login">fazer login</a>.
+            <Link href="/login">fazer login</Link>.
           </Banner.Description>
         </Banner>
       )}
