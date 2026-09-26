@@ -57,10 +57,10 @@ function validateInterest(interest) {
 async function ensurePersonExistsOrThrow(personCp) {
   // person_cp é CPF (11) ou CNPJ (14)
   if (personCp.length === 11) {
-    await person.findOneByCPF(personCp);
+    await person.findOnebyCpf(personCp);
     return;
   }
-  await person.findOneByCNPJ(personCp);
+  await person.findOneByCnpj(personCp);
 }
 
 async function getRequesterMembership(projectId, requestingUser) {

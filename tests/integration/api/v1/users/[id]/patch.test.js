@@ -275,7 +275,7 @@ describe("PATCH /api/v1/users/[id]", () => {
       expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
       expect(responseBody.updated_at > responseBody.created_at).toBe(true);
 
-      const userInDatabase = await user.findOneByCPF(createdUser.cpf);
+      const userInDatabase = await user.findOnebyCpf(createdUser.cpf);
 
       expect(userInDatabase.email).toBe("uniqueEmail2@mail.com");
     });
@@ -329,7 +329,7 @@ describe("PATCH /api/v1/users/[id]", () => {
       expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
       expect(responseBody.updated_at > responseBody.created_at).toBe(true);
 
-      const userInDatabase = await user.findOneByCPF(createdUser.cpf);
+      const userInDatabase = await user.findOnebyCpf(createdUser.cpf);
       const correctPasswordMatch = await password.compare(
         "newPassword2",
         userInDatabase.password,

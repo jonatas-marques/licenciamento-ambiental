@@ -72,7 +72,7 @@ describe("Use Case: Registration Flow (all sucessful)", () => {
 
     expect(Date.parse(activationResponseBody.used_at)).not.toBeNaN();
 
-    const activatedUser = await user.findOneByCPF("11487559922");
+    const activatedUser = await user.findOnebyCpf("11487559922");
 
     expect(activatedUser.features).toEqual([
       "create:session",
@@ -100,7 +100,7 @@ describe("Use Case: Registration Flow (all sucessful)", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: "registration.flow@curso.dev",
+          cpf: "11487559922",
           password: "RegistrationFlowPassword",
         }),
       },

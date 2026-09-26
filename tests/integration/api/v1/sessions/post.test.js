@@ -96,7 +96,7 @@ describe("POST /api/v1/users", () => {
 
     test("With correct `email` and correct `password`", async () => {
       const createdUser = await orchestrator.createUser({
-        email: "allright@test.com",
+        cpf: "01001001000",
         password: "allrightpassword",
       });
 
@@ -108,7 +108,7 @@ describe("POST /api/v1/users", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: "allright@test.com",
+          cpf: "01001001000",
           password: "allrightpassword",
         }),
       });
