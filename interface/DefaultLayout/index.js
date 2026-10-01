@@ -90,6 +90,7 @@ export default function DefaultLayout({
         )}
 
         {!isLoadingUser && user && (
+          // Tentar substituir o botão pelo avatar
           <>
             <Header.Item>
               <ActionMenu>
