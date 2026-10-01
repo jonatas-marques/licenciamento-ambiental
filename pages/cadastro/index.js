@@ -20,6 +20,13 @@ export default function RegisterPage() {
   );
 }
 
+function formatCpf(value) {
+  return value
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
 function RegisterForm() {
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
@@ -49,7 +56,7 @@ function RegisterForm() {
           <FormControl.Label>CPF</FormControl.Label>
           <TextInput
             type="text"
-            value={cpf}
+            value={formatCpf(cpf)}
             onChange={(event) => {
               setCpf(event.target.value);
             }}
