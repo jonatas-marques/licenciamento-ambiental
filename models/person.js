@@ -61,7 +61,7 @@ async function findLegalById(id) {
   }
 }
 
-async function findOneByCPF(cpf) {
+async function findOnebyCpf(cpf) {
   const naturalPersonFound = await runSelectQuery(cpf);
   return naturalPersonFound;
 
@@ -90,7 +90,7 @@ async function findOneByCPF(cpf) {
   }
 }
 
-async function findOneByCNPJ(cnpj) {
+async function findOneByCnpj(cnpj) {
   const legalPersonFound = await runSelectQuery(cnpj);
   return legalPersonFound;
 
@@ -507,8 +507,8 @@ async function removeLegalPersonMember(legalPersonId, naturalPersonId) {
 const person = {
   findLegalById,
   findNaturalById,
-  findOneByCPF,
-  findOneByCNPJ,
+  findOnebyCpf,
+  findOneByCnpj,
   createNaturalPerson,
   createLegalPerson,
   updateNaturalPerson,
