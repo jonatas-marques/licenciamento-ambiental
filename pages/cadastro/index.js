@@ -58,7 +58,11 @@ function RegisterForm() {
             type="text"
             value={formatCpf(cpf)}
             onChange={(event) => {
-              setCpf(event.target.value);
+              const digitsOnly = event.target.value
+                .replace(/\D/g, "")
+                .slice(0, 11);
+
+              setCpf(digitsOnly);
             }}
             block
           />
