@@ -13,6 +13,7 @@ import {
   PersonIcon,
   SignOutIcon,
 } from "@primer/octicons-react";
+import Link from "next/link";
 import styles from "./index.module.css";
 
 const contentWidthClasses = {
@@ -98,14 +99,14 @@ export default function DefaultLayout({
 
                 <ActionMenu.Overlay>
                   <ActionList>
-                    <ActionList.Item href="/perfil">
+                    <ActionList.LinkItem as={Link} href="/perfil">
                       <PersonIcon size={16} />
                       Perfil
-                    </ActionList.Item>
-                    <ActionList.Item href="/organizacao">
+                    </ActionList.LinkItem>
+                    <ActionList.LinkItem as={Link} href="/organizacao">
                       <OrganizationIcon size={16} />
                       Organização
-                    </ActionList.Item>
+                    </ActionList.LinkItem>
                     <ActionList.Item variant="danger" onSelect={handleLogout}>
                       <SignOutIcon size={16} />
                       Sair
