@@ -137,3 +137,21 @@ export class MethodNotAllowedError extends Error {
     };
   }
 }
+
+export class ConflictError extends Error {
+  constructor() {
+    super("Conflito de dados.");
+    this.name = "ConflictError";
+    this.action = "Verifique se os dados informados estão corretos.";
+    this.statusCode = 409;
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      action: this.action,
+      status_code: this.statusCode,
+    };
+  }
+}
