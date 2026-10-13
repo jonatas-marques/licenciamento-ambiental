@@ -72,7 +72,7 @@ describe("Use Case: Registration Flow (all sucessful)", () => {
 
     expect(Date.parse(activationResponseBody.used_at)).not.toBeNaN();
 
-    const activatedUser = await user.findOnebyCpf("11487559922");
+    const activatedUser = await user.findOneByCpf("11487559922");
 
     expect(activatedUser.features).toEqual([
       "create:session",

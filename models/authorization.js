@@ -26,7 +26,13 @@ const availableFeatures = [
   // PESSOA
   "create:person",
   "read:person",
+  "read:person:self",
   "update:person",
+
+  // PROFILE
+  "read:profile",
+  "read:profile:self",
+  "update:profile",
 
   // PROJECT
   "create:project",
@@ -81,6 +87,10 @@ function filterOutput(user, feature, resource) {
         updated_at: resource.updated_at,
       };
     }
+  }
+
+  if (feature === "read:profile") {
+    return resource;
   }
 
   if (feature === "read:session") {

@@ -10,23 +10,61 @@ import {
 import DefaultLayout from "../../interface/DefaultLayout";
 
 export default function ProfilePage() {
-  const [cpf, setCpf] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [naturalPerson, setNaturalPerson] = useState(null);
+  const [loadingStatus, setLoadingStatus] = useState("loading");
+  const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
-    async function loadCurrentUser() {
+    loadProfile();
+
+    async function loadProfile() {
       try {
-        const response = await fetch("/api/v1/user");
-        if (!response.ok) {
+        setLoadingStatus("loading");
+        setErrorMessage(null);
+
+        // 1. Busca o usuário autenticado
+        const userResponse = await fetch("/api/v1/user");
+
+        // se resposta === 200
+        if (userResponse.status === 200) {
+          const userData = await userResponse.json();
+          setCurrentUser(userData);
+        }
+
+        // Se não encontrar usuário, erly return
+        if (userResponse.status === 404) {
+          setCurrentUser(null);
+          setNaturalPerson(null);
+          setLoadingStatus("failure");
           return;
         }
-        const userData = await response.json();
-        setCpf(userData.cpf ?? "");
-      } catch {
-        setCpf("");
+
+        // 2. Procura uma pessoa física com o mesmo CPF
+        let personData = null;
+        const personResponse = await fetch("/api/v1/person");
+
+        if (personResponse.status === 200) {
+          personData = await personResponse.json();
+          setNaturalPerson(personData);
+        }
+
+        // Não existe pessoa física com esse CPF
+        if (personResponse.status === 404) {
+          setNaturalPerson(null);
+          setLoadingStatus("success");
+          return;
+        }
+
+        setNaturalPerson(personData);
+        setLoadingStatus("success");
+      } catch (error) {
+        setCurrentUser(null);
+        setNaturalPerson(null);
+        setLoadingStatus("failure");
+        setErrorMessage(error.message || "Não foi possível carregar o perfil.");
       }
     }
-
-    loadCurrentUser();
   }, []);
 
   return (
@@ -38,119 +76,146 @@ export default function ProfilePage() {
       }}
     >
       <Stack gap="spacious">
-        <Heading as="h1">Editar Perfil</Heading>
+        <Heading as="h1">Editar perfil</Heading>
 
-        <ProfileForm cpf={cpf} />
+        {loadingStatus === "loading" && <p>Carregando...</p>}
+
+        {loadingStatus === "success" && (
+          <ProfileForm user={currentUser} person={naturalPerson} />
+        )}
+
+        {loadingStatus === "failure" && (
+          <Banner
+            variant="critical"
+            title="Critical"
+            hideTitle
+            description={errorMessage || "Não foi possível carregar o perfil."}
+          />
+        )}
       </Stack>
     </DefaultLayout>
   );
 }
 
 function formatCpf(value) {
-  return value
+  return String(value ?? "")
+    .replace(/\D/g, "")
+    .slice(0, 11)
     .replace(/(\d{3})(\d)/, "$1.$2")
     .replace(/(\d{3})(\d)/, "$1.$2")
     .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 }
 
-function ProfileForm({ cpf }) {
-  const [name, setName] = useState("");
-  const [birthDate, setBirthDate] = useState("");
-  const email = "";
-  const [phone, setPhone] = useState("");
-  const password = "";
-  const [loginStatus, setLoginStatus] = useState("idle");
+// Pegar os dados de usuário e pessoa
+// na função loadProfile, dentro do Hook useEffect,
+// e passar para o ProfileForm
+function ProfileForm({ user, person }) {
+  const [name, setName] = useState(person?.name ?? "");
+  const [cpf, setCpf] = useState(user?.cpf ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [editingStatus, setEditingStatus] = useState("idle");
   const [errorMessage, setErrorMessage] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
+  // decidir metodo e url com base na existência de pessoa física
+  const method = person ? "PATCH" : "POST";
+  const url = person
+    ? `/api/v1/persons/natural/${person.id}`
+    : "/api/v1/persons/natural";
+
+  const requestBody = {
+    name,
+    cpf,
+  };
+
   async function handleSubmit(event) {
     event.preventDefault();
-    setLoginStatus("loading");
+    setEditingStatus("loading");
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    const requestBody = { name, birthDate, cpf, email, phone, password };
-
-    let loginResponseBody = null;
     try {
-      const response = await fetch("/api/v1/persons/natural", {
-        method: "POST",
+      const response = await fetch(url, {
+        method: method,
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
       });
 
-      loginResponseBody = await response.json();
+      const editingResponseBody = await response.json();
 
       if (response.status === 201) {
-        setLoginStatus("success");
-        setSuccessMessage("Perfil atualizado com sucesso!");
+        setEditingStatus("success");
+        setSuccessMessage("Cadastro completado com sucesso!");
         return;
       }
       setErrorMessage(
-        `${loginResponseBody.message} ${loginResponseBody.action}`,
+        `${editingResponseBody.message} ${editingResponseBody.action}`,
       );
-      setLoginStatus("failure");
+      setEditingStatus("failure");
     } catch {
       setErrorMessage(
-        "Não foi possível cadastrar a sua pessoa. Tente novamente mais tarde.",
+        "Não foi possível editar seu perfil. Tente novamente mais tarde.",
       );
-      setLoginStatus("failure");
+      setEditingStatus("failure");
     }
   }
 
   return (
     <form onSubmit={handleSubmit}>
       <Stack gap="normal">
-        <FormControl>
+        <FormControl required>
           <FormControl.Label>Nome</FormControl.Label>
+
           <TextInput
             type="text"
             value={name}
             onChange={(event) => {
               setName(event.target.value);
             }}
+            autoComplete="name"
+            disabled={editingStatus === "loading"}
             block
           />
         </FormControl>
+
         <FormControl>
           <FormControl.Label>CPF</FormControl.Label>
-          <TextInput type="text" value={formatCpf(cpf)} readOnly block />
-        </FormControl>
-        <FormControl>
-          <FormControl.Label>Data de nascimento</FormControl.Label>
 
-          <TextInput
-            type="date"
-            value={birthDate}
-            onChange={(event) => {
-              setBirthDate(event.target.value);
-            }}
-            block
-          />
+          <TextInput type="text" value={formatCpf(cpf)} readOnly block />
+          <FormControl.Caption>
+            O CPF pertence à sua conta e não pode ser alterado neste formulário.
+            Para informar um erro, clique aqui.
+          </FormControl.Caption>
         </FormControl>
+
+        <FormControl>
+          <FormControl.Label>E-mail</FormControl.Label>
+
+          <TextInput type="email" value={email} readOnly block />
+
+          <FormControl.Caption>
+            O e-mail pertence à sua conta de usuário. Para alterar, clique aqui.
+          </FormControl.Caption>
+        </FormControl>
+
         <FormControl>
           <FormControl.Label>Telefone</FormControl.Label>
 
-          <TextInput
-            type="text"
-            value={phone}
-            onChange={(event) => {
-              setPhone(event.target.value);
-            }}
-            block
-          />
+          <TextInput type="text" value="(11) 99999-9999" block />
         </FormControl>
+
         <Stack.Item>
           <Button
             type="submit"
             variant="primary"
-            disabled={loginStatus === "loading"}
+            disabled={editingStatus === "loading"}
           >
             Salvar
           </Button>
         </Stack.Item>
+
         {successMessage && (
           <Stack.Item>
             <Banner
@@ -161,6 +226,7 @@ function ProfileForm({ cpf }) {
             />
           </Stack.Item>
         )}
+
         {errorMessage && (
           <Stack.Item>
             <Banner

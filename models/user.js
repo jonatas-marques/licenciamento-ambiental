@@ -32,7 +32,7 @@ async function findOneById(id) {
     return results.rows[0];
   }
 }
-async function findOnebyCpf(cpf) {
+async function findOneByCpf(cpf) {
   const userFound = await runSelectQuery(cpf);
   return userFound;
 
@@ -270,7 +270,7 @@ async function addFeatures(userId, features) {
 const user = {
   create,
   findOneById,
-  findOnebyCpf,
+  findOneByCpf,
   findOneByEmail,
   update,
   setFeatures,

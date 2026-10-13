@@ -61,7 +61,36 @@ async function findLegalById(id) {
   }
 }
 
-async function findOnebyCpf(cpf) {
+async function findOneByUserId(userId) {
+  const naturalPersonFound = await runSelectQuery(userId);
+  return naturalPersonFound;
+
+  async function runSelectQuery(userId) {
+    const results = await database.query({
+      text: `
+      SELECT 
+        * 
+      FROM 
+        natural_persons
+      WHERE
+        user_id = $1
+      LIMIT
+        1
+      ;`,
+      values: [userId],
+    });
+    if (results.rowCount === 0) {
+      throw new NotFoundError({
+        message: "Não há pessoa física associada ao usuário.",
+        action: "Verifique se o perfil do usuário está completo.",
+        status_code: 404,
+      });
+    }
+    return results.rows[0];
+  }
+}
+
+async function findOneByCpf(cpf) {
   const naturalPersonFound = await runSelectQuery(cpf);
   return naturalPersonFound;
 
@@ -507,7 +536,8 @@ async function removeLegalPersonMember(legalPersonId, naturalPersonId) {
 const person = {
   findLegalById,
   findNaturalById,
-  findOnebyCpf,
+  findOneByUserId,
+  findOneByCpf,
   findOneByCnpj,
   createNaturalPerson,
   createLegalPerson,
