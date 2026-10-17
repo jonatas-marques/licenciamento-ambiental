@@ -7,7 +7,7 @@ import { ForbiddenError } from "infra/errors.js";
 export default createRouter()
   .use(controller.injectAnonymousOrUser)
   .get(getHandler)
-  .post(controller.canRequest("update:person"), postHandler)
+  .post(controller.canRequest("update:project"), postHandler)
   .handler(controller.errorHandlers);
 
 async function getHandler(request, response) {
@@ -18,7 +18,7 @@ async function getHandler(request, response) {
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToGet,
-    "read:person",
+    "read:project",
     members,
   );
 
@@ -33,7 +33,7 @@ async function postHandler(request, response) {
   // confirma que o user tem a feature update:person (gated + can())
   const targetLegalPerson = await person.findLegalById(legalPersonId);
   if (
-    !authorization.can(userTryingToPost, "update:person", targetLegalPerson)
+    !authorization.can(userTryingToPost, "update:project", targetLegalPerson)
   ) {
     throw new ForbiddenError({
       message: "Você não possui permissão para atualizar essa pessoa.",
@@ -52,7 +52,7 @@ async function postHandler(request, response) {
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPost,
-    "read:person",
+    "read:project",
     createdMembership,
   );
 

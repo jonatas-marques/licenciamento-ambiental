@@ -27,6 +27,10 @@ exports.up = (pgm) => {
       notNull: true,
       default: pgm.func("timezone('utc', now())"),
     },
+    user_id: {
+      type: "uuid",
+      notNull: false,
+    },
   });
 };
 

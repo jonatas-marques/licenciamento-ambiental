@@ -5,6 +5,7 @@ import {
   MethodNotAllowedError,
   ValidationError,
   NotFoundError,
+  ConflictError,
   UnauthorizedError,
   ForbiddenError,
 } from "infra/errors.js";
@@ -20,6 +21,7 @@ function onErrorHandler(error, request, response) {
   if (
     error instanceof ValidationError ||
     error instanceof NotFoundError ||
+    error instanceof ConflictError ||
     error instanceof ForbiddenError
   ) {
     return response.status(error.statusCode).json(error);
