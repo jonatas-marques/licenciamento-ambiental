@@ -29,11 +29,6 @@ const availableFeatures = [
   "read:person:self",
   "update:person",
 
-  // PROFILE
-  "read:profile",
-  "read:profile:self",
-  "update:profile",
-
   // PROJECT
   "create:project",
   "read:project",
@@ -54,6 +49,23 @@ function can(user, feature, resource) {
     authorized = false;
 
     if (user.id === resource.id || can(user, "update:user:others")) {
+      authorized = true;
+    }
+  }
+
+  if (feature === "update:person" && resource) {
+    authorized = false;
+
+    const isLinkedPerson = user.id === resource.user_id;
+
+    const isUnlinkedPersonWithSameCpf =
+      resource.user_id === null && user.cpf === resource.cpf;
+
+    if (
+      isLinkedPerson ||
+      isUnlinkedPersonWithSameCpf ||
+      can(user, "update:person:others")
+    ) {
       authorized = true;
     }
   }
@@ -89,8 +101,31 @@ function filterOutput(user, feature, resource) {
     }
   }
 
-  if (feature === "read:profile") {
-    return resource;
+  if (feature === "read:person") {
+    return {
+      id: resource.id,
+      created_at: resource.created_at,
+      updated_at: resource.updated_at,
+    };
+  }
+
+  if (feature === "read:person:self") {
+    const isLinkedToUser = resource.user_id === user.id;
+    const hasSameCpf = resource.user_id === null && resource.cpf === user.cpf;
+
+    if (isLinkedToUser || hasSameCpf) {
+      return {
+        id: resource.id,
+        name: resource.name,
+        cpf: resource.cpf,
+
+        user_id: resource.user_id,
+
+        created_by: resource.created_by,
+        created_at: resource.created_at,
+        updated_at: resource.updated_at,
+      };
+    }
   }
 
   if (feature === "read:session") {
@@ -143,10 +178,6 @@ function filterOutput(user, feature, resource) {
         resource.dependencies.database.version;
     }
     return output;
-  }
-
-  if (feature === "read:person") {
-    return resource;
   }
 
   if (feature === "read:project") {

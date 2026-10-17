@@ -139,10 +139,13 @@ export class MethodNotAllowedError extends Error {
 }
 
 export class ConflictError extends Error {
-  constructor() {
-    super("Conflito de dados.");
+  constructor({ cause, message, action } = {}) {
+    super(message || "Conflito de dados.", {
+      cause,
+    });
+
     this.name = "ConflictError";
-    this.action = "Verifique se os dados informados estão corretos.";
+    this.action = action || "Verifique se os dados informados estão corretos.";
     this.statusCode = 409;
   }
 

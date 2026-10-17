@@ -1,5 +1,5 @@
 import database from "infra/database.js";
-import { ValidationError, NotFoundError } from "infra/errors.js";
+import { ValidationError, NotFoundError, ConflictError } from "infra/errors.js";
 
 async function findNaturalById(id) {
   const naturalPersonFound = await runSelectQuery(id);
@@ -88,6 +88,47 @@ async function findOneByUserId(userId) {
     }
     return results.rows[0];
   }
+}
+
+async function findOneByUser(userObject) {
+  // Stores the natural person found for the user.
+  let naturalPersonFound;
+  try {
+    // First, try to find a natural person already linked to the user.
+    // The user_id is the primary relationship between User and NaturalPerson.
+    naturalPersonFound = await findOneByUserId(userObject.id);
+  } catch (error) {
+    // Only ignore NotFoundError because it means that there is no person
+    // currently linked to this user. Any other error must be propagated.
+    if (!(error instanceof NotFoundError)) {
+      throw error;
+    }
+    // If there is no person linked by user_id, try to find an existing
+    // natural person with the same CPF as the user.
+    naturalPersonFound = await findOneByCpf(userObject.cpf);
+  }
+  // If the person was found by user_id, confirm that both records
+  // still represent the same person by comparing their CPFs.
+  if (naturalPersonFound.cpf !== userObject.cpf) {
+    throw new ConflictError({
+      message: "Não foi possível consultar os dados solicitados.",
+      action: "Entre em contato com o suporte.",
+    });
+  }
+  // A person found by CPF can be unlinked (user_id = null).
+  // However, if it is already linked, it must belong to the current user.
+  if (
+    naturalPersonFound.user_id !== null &&
+    naturalPersonFound.user_id !== userObject.id
+  ) {
+    throw new ConflictError({
+      message: "Não foi possível consultar os dados solicitados.",
+      action: "Entre em contato com o suporte.",
+    });
+  }
+  // Return the person already linked to the user or, as a fallback,
+  // the unlinked person found by the same CPF.
+  return naturalPersonFound;
 }
 
 async function findOneByCpf(cpf) {
@@ -533,16 +574,42 @@ async function removeLegalPersonMember(legalPersonId, naturalPersonId) {
   return results.rows[0];
 }
 
+async function linkUser(naturalPersonId, userId) {
+  const updatedNaturalPerson = await runUpdateQuery(naturalPersonId, userId);
+  return updatedNaturalPerson;
+
+  async function runUpdateQuery(naturalPersonId, userId) {
+    const results = await database.query({
+      text: `
+      UPDATE
+        natural_persons
+      SET
+        user_id = $2,
+        updated_at = timezone('utc'::text, now())
+      WHERE
+        id = $1
+      RETURNING
+        *
+      ;
+      `,
+      values: [naturalPersonId, userId],
+    });
+    return results.rows[0];
+  }
+}
+
 const person = {
   findLegalById,
   findNaturalById,
   findOneByUserId,
+  findOneByUser,
   findOneByCpf,
   findOneByCnpj,
   createNaturalPerson,
   createLegalPerson,
   updateNaturalPerson,
   updateLegalPerson,
+  linkUser,
 
   // NEW: legal_person_members
   listLegalPersonMembers,

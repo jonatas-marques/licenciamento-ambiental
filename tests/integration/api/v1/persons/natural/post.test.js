@@ -64,9 +64,6 @@ describe("POST /api/v1/persons/natural", () => {
 
       expect(responseBody).toEqual({
         id: responseBody.id,
-        cpf: "03819247812",
-        name: "Fulano de Tal",
-        created_by: user.id,
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,
       });

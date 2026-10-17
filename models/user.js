@@ -243,6 +243,7 @@ async function setFeatures(userId, features) {
     return results.rows[0];
   }
 }
+
 async function addFeatures(userId, features) {
   const updatedUser = await runUpdateQuery(userId, features);
   return updatedUser;
