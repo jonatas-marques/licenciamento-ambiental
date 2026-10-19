@@ -294,6 +294,7 @@ describe("PATCH /api/v1/users/[id]", () => {
             Cookie: `session_id=${sessionObject.token}`,
           },
           body: JSON.stringify({
+            currentPassword: "validpassword",
             password: "newPassword2",
           }),
         },
@@ -340,6 +341,35 @@ describe("PATCH /api/v1/users/[id]", () => {
         userInDatabase.password,
       );
       expect(incorrectPasswordMatch).toBe(false);
+    });
+
+    test("With incorrect `currentPassword`", async () => {
+      const createdUser = await orchestrator.createUser();
+      const activatedUser = await orchestrator.activateUser(createdUser);
+      const sessionObject = await orchestrator.createSession(activatedUser);
+
+      const response = await fetch(
+        `${webserver.origin}/api/v1/users/${createdUser.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `session_id=${sessionObject.token}`,
+          },
+          body: JSON.stringify({
+            currentPassword: "incorrectPassword",
+            password: "newPassword2",
+          }),
+        },
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        name: "ValidationError",
+        message: "Senha atual incorreta.",
+        action: "Verifique a senha atual e tente novamente.",
+        status_code: 400,
+      });
     });
   });
 
