@@ -2,12 +2,19 @@ import { useEffect, useState } from "react";
 import { Button, Stack, Heading, Banner, Text } from "@primer/react";
 import { Card } from "@primer/react/experimental";
 import DefaultLayout from "../../interface/DefaultLayout";
+import { useRouter } from "next/router";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState(null);
   const [naturalPerson, setNaturalPerson] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState("loading");
   const [errorMessage, setErrorMessage] = useState(null);
+
+  function handleClick(event, href) {
+    event.preventDefault();
+    router.push(href);
+  }
 
   useEffect(() => {
     loadProfile();
@@ -75,9 +82,12 @@ export default function ProfilePage() {
 
         {loadingStatus === "success" && (
           <>
-            <AccountSection user={currentUser} />
+            <AccountSection user={currentUser} handleClick={handleClick} />
 
-            <PersonalDataSection person={naturalPerson} />
+            <PersonalDataSection
+              person={naturalPerson}
+              handleClick={handleClick}
+            />
           </>
         )}
 
@@ -94,7 +104,7 @@ export default function ProfilePage() {
   );
 }
 
-function AccountSection({ user }) {
+function AccountSection({ user, handleClick }) {
   return (
     <Stack gap="normal">
       <Heading as="h2">Dados de acesso</Heading>
@@ -104,7 +114,12 @@ function AccountSection({ user }) {
 
           <Card.Description>{user.email}</Card.Description>
           <Card.Metadata>
-            <Button size="small">Alterar</Button>
+            <Button
+              size="small"
+              onClick={(event) => handleClick(event, "/perfil/email")}
+            >
+              Alterar
+            </Button>
           </Card.Metadata>
         </Card>
       </Stack.Item>
@@ -114,7 +129,12 @@ function AccountSection({ user }) {
 
           <Card.Description>••••••••</Card.Description>
           <Card.Metadata>
-            <Button size="small">Alterar</Button>
+            <Button
+              size="small"
+              onClick={(event) => handleClick(event, "/perfil/senha")}
+            >
+              Alterar
+            </Button>
           </Card.Metadata>
         </Card>
       </Stack.Item>
@@ -122,7 +142,7 @@ function AccountSection({ user }) {
   );
 }
 
-function PersonalDataSection({ person }) {
+function PersonalDataSection({ person, handleClick }) {
   if (!person) {
     return (
       <Stack gap="normal">
@@ -134,7 +154,12 @@ function PersonalDataSection({ person }) {
         />
 
         <Stack.Item>
-          <Button variant="primary">Completar cadastro</Button>
+          <Button
+            variant="primary"
+            onClick={(event) => handleClick(event, "/perfil/pessoa")}
+          >
+            Completar cadastro
+          </Button>
         </Stack.Item>
       </Stack>
     );
@@ -148,7 +173,12 @@ function PersonalDataSection({ person }) {
           <Card.Heading>Nome</Card.Heading>
           <Card.Description>{person.name}</Card.Description>
           <Card.Metadata>
-            <Button size="small">Alterar</Button>
+            <Button
+              size="small"
+              onClick={(event) => handleClick(event, "/perfil/pessoa")}
+            >
+              Alterar
+            </Button>
           </Card.Metadata>
         </Card>
       </Stack.Item>
