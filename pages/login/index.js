@@ -48,7 +48,6 @@ function LoginForm() {
 
     const requestBody = { cpf, password };
 
-    let loginResponseBody = null;
     try {
       const response = await fetch("/api/v1/sessions", {
         method: "POST",
@@ -58,7 +57,7 @@ function LoginForm() {
         body: JSON.stringify(requestBody),
       });
 
-      loginResponseBody = await response.json();
+      const loginResponseBody = await response.json();
 
       if (response.status === 201) {
         setLoginStatus("success");

@@ -71,13 +71,14 @@ export default function ProfilePage() {
 
   return (
     <DefaultLayout
-      contentWidth="small"
+      contentWidth="medium"
       metadata={{
         title: "Perfil",
         description: "Gerenciar seu perfil",
       }}
     >
       <Stack gap="spacious">
+        <Heading as="h1">Perfil</Heading>
         {loadingStatus === "loading" && <Text>Carregando...</Text>}
 
         {loadingStatus === "success" && (
@@ -113,14 +114,14 @@ function AccountSection({ user, handleClick }) {
           <Card.Heading>Email</Card.Heading>
 
           <Card.Description>{user.email}</Card.Description>
-          <Card.Metadata>
+          <Card.Action>
             <Button
               size="small"
               onClick={(event) => handleClick(event, "/perfil/email")}
             >
               Alterar
             </Button>
-          </Card.Metadata>
+          </Card.Action>
         </Card>
       </Stack.Item>
       <Stack.Item>
@@ -128,14 +129,14 @@ function AccountSection({ user, handleClick }) {
           <Card.Heading>Senha</Card.Heading>
 
           <Card.Description>••••••••</Card.Description>
-          <Card.Metadata>
+          <Card.Action>
             <Button
               size="small"
               onClick={(event) => handleClick(event, "/perfil/senha")}
             >
               Alterar
             </Button>
-          </Card.Metadata>
+          </Card.Action>
         </Card>
       </Stack.Item>
     </Stack>
@@ -147,11 +148,12 @@ function PersonalDataSection({ person, handleClick }) {
     return (
       <Stack gap="normal">
         <Heading as="h2">Dados pessoais</Heading>
-
-        <Banner
-          title="Cadastro incompleto"
-          description="Seus dados pessoais ainda não foram cadastrados."
-        />
+        <Stack.Item>
+          <Banner
+            title="Cadastro incompleto"
+            description="Seus dados pessoais ainda não foram cadastrados."
+          />
+        </Stack.Item>
 
         <Stack.Item>
           <Button
@@ -172,19 +174,19 @@ function PersonalDataSection({ person, handleClick }) {
         <Card>
           <Card.Heading>Nome</Card.Heading>
           <Card.Description>{person.name}</Card.Description>
-          <Card.Metadata>
+          <Card.Action>
             <Button
               size="small"
               onClick={(event) => handleClick(event, "/perfil/pessoa")}
             >
               Alterar
             </Button>
-          </Card.Metadata>
+          </Card.Action>
         </Card>
       </Stack.Item>
       <Stack.Item>
         <Card>
-          <Card.Heading>Nome</Card.Heading>
+          <Card.Heading>CPF</Card.Heading>
           <Card.Description>{formatCpf(person.cpf)}</Card.Description>
         </Card>
       </Stack.Item>
