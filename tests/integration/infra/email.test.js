@@ -6,6 +6,19 @@ beforeAll(async () => {
 });
 
 describe("infra/email.js", () => {
+  test("send() without a sender", async () => {
+    await expect(
+      email.send({
+        to: "destinatario@mail.com",
+        subject: "Teste de envio de email",
+        text: "Teste de corpo.",
+      }),
+    ).rejects.toMatchObject({
+      message: "O remetente do email não está configurado.",
+      action: "Configure a variável EMAIL_FROM.",
+    });
+  });
+
   test("send()", async () => {
     await orchestrator.deleteAllEmails();
 
