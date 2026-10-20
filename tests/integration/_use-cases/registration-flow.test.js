@@ -44,7 +44,7 @@ describe("Use Case: Registration Flow (all sucessful)", () => {
 
     expect(lastEmail.sender).toBe("<contato@licenciamento-ambiental.dev.br>");
     expect(lastEmail.recipients[0]).toBe("<registration.flow@curso.dev>");
-    expect(lastEmail.subject).toBe("Ative sua conta no Clone TabNews");
+    expect(lastEmail.subject).toBe("Ative sua conta no EcoTab");
 
     activationTokenId = await orchestrator.extractUUID(lastEmail.text);
 
