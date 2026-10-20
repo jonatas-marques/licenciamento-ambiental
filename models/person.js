@@ -199,9 +199,9 @@ async function createNaturalPerson(userInputValues) {
     const results = await database.query({
       text: `
     INSERT INTO 
-      natural_persons (cpf, name, created_by) 
+      natural_persons (cpf, name, created_by, user_id)
     VALUES 
-      ($1, $2, $3)
+      ($1, $2, $3, $4)
     RETURNING 
       *
     ;`,
@@ -209,6 +209,7 @@ async function createNaturalPerson(userInputValues) {
         userInputValues.cpf,
         userInputValues.name,
         userInputValues.created_by,
+        userInputValues.user_id ?? null,
       ],
     });
     return results.rows[0];
