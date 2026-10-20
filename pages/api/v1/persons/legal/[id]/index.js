@@ -17,7 +17,7 @@ async function getHandler(request, response) {
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToGet,
-    "read:person",
+    "read:project",
     legalPersonFound,
   );
 
@@ -48,7 +48,7 @@ async function patchHandler(request, response) {
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPatch,
-    "read:person",
+    "read:project",
     updatedLegalPerson,
   );
 

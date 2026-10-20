@@ -44,7 +44,7 @@ describe("Use Case: Registration Flow (all sucessful)", () => {
 
     expect(lastEmail.sender).toBe("<contato@licenciamento-ambiental.dev.br>");
     expect(lastEmail.recipients[0]).toBe("<registration.flow@curso.dev>");
-    expect(lastEmail.subject).toBe("Ative sua conta no Clone TabNews");
+    expect(lastEmail.subject).toBe("Ative sua conta no EcoTab");
 
     activationTokenId = await orchestrator.extractUUID(lastEmail.text);
 
@@ -72,7 +72,7 @@ describe("Use Case: Registration Flow (all sucessful)", () => {
 
     expect(Date.parse(activationResponseBody.used_at)).not.toBeNaN();
 
-    const activatedUser = await user.findOnebyCpf("11487559922");
+    const activatedUser = await user.findOneByCpf("11487559922");
 
     expect(activatedUser.features).toEqual([
       "create:session",

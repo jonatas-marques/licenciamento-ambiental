@@ -57,7 +57,7 @@ function validateInterest(interest) {
 async function ensurePersonExistsOrThrow(personCp) {
   // person_cp é CPF (11) ou CNPJ (14)
   if (personCp.length === 11) {
-    await person.findOnebyCpf(personCp);
+    await person.findOneByCpf(personCp);
     return;
   }
   await person.findOneByCnpj(personCp);

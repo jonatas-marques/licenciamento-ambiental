@@ -13,6 +13,8 @@ async function postHandler(request, response) {
   const userInputValues = {
     ...request.body,
     created_by: userTryingToPost.id, // Vem do servidor, não do Cliente!
+    user_id:
+      request.body.cpf === userTryingToPost.cpf ? userTryingToPost.id : null,
   };
   const newPerson = await person.createNaturalPerson(userInputValues);
 

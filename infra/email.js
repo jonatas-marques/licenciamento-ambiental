@@ -12,6 +12,13 @@ const transporter = nodemailer.createTransport({
 });
 
 async function send(mailOptions) {
+  if (!mailOptions.from) {
+    throw new ServiceError({
+      message: "O remetente do email não está configurado.",
+      action: "Configure a variável EMAIL_FROM.",
+    });
+  }
+
   try {
     await transporter.sendMail(mailOptions);
   } catch (error) {

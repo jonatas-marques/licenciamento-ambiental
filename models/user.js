@@ -32,7 +32,7 @@ async function findOneById(id) {
     return results.rows[0];
   }
 }
-async function findOnebyCpf(cpf) {
+async function findOneByCpf(cpf) {
   const userFound = await runSelectQuery(cpf);
   return userFound;
 
@@ -130,20 +130,42 @@ async function create(userImputValues) {
 
 async function update(id, userInputValues) {
   const currentUser = await findOneById(id);
+  const { currentPassword, ...valuesToUpdate } = userInputValues;
 
-  if ("cpf" in userInputValues) {
-    await validateUniqueCPF(userInputValues.cpf);
+  if ("password" in valuesToUpdate) {
+    if (typeof currentPassword !== "string" || currentPassword.length === 0) {
+      throw new ValidationError({
+        message: "Senha atual não informada.",
+        action: "Informe sua senha atual para alterá-la.",
+      });
+    }
+
+    const currentPasswordIsValid = await password.compare(
+      currentPassword,
+      currentUser.password,
+    );
+
+    if (!currentPasswordIsValid) {
+      throw new ValidationError({
+        message: "Senha atual incorreta.",
+        action: "Verifique a senha atual e tente novamente.",
+      });
+    }
   }
 
-  if ("email" in userInputValues) {
-    await validateUniqueEmail(userInputValues.email);
+  if ("cpf" in valuesToUpdate) {
+    await validateUniqueCPF(valuesToUpdate.cpf);
   }
 
-  if ("password" in userInputValues) {
-    await hashPasswordInObject(userInputValues);
+  if ("email" in valuesToUpdate) {
+    await validateUniqueEmail(valuesToUpdate.email);
   }
 
-  const userWithNewValues = { ...currentUser, ...userInputValues };
+  if ("password" in valuesToUpdate) {
+    await hashPasswordInObject(valuesToUpdate);
+  }
+
+  const userWithNewValues = { ...currentUser, ...valuesToUpdate };
 
   const updatedUser = await runUpdateQuery(userWithNewValues);
   return updatedUser;
@@ -243,6 +265,7 @@ async function setFeatures(userId, features) {
     return results.rows[0];
   }
 }
+
 async function addFeatures(userId, features) {
   const updatedUser = await runUpdateQuery(userId, features);
   return updatedUser;
@@ -270,7 +293,7 @@ async function addFeatures(userId, features) {
 const user = {
   create,
   findOneById,
-  findOnebyCpf,
+  findOneByCpf,
   findOneByEmail,
   update,
   setFeatures,

@@ -61,9 +61,9 @@ async function create(userId) {
 
 async function sendEmailtoUser(user, activationToken) {
   await email.send({
-    from: "LicenciamentoAmbiental <contato@licenciamento-ambiental.dev.br>",
+    from: process.env.EMAIL_FROM,
     to: user.email,
-    subject: "Ative sua conta no Clone TabNews",
+    subject: "Ative sua conta no EcoTab",
     text: `Prezado/a, clique no link abaixo para ativar sua conta:\n\n${webserver.origin}/cadastro/ativar/${activationToken.id}\n\nAtenciosamente,\nEquipe`,
   });
 }
