@@ -22,7 +22,7 @@ async function getUser(providedCpf, providedPassword) {
     let storedUser;
 
     try {
-      storedUser = await user.findOnebyCpf(providedCpf);
+      storedUser = await user.findOneByCpf(providedCpf);
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw new UnauthorizedError({

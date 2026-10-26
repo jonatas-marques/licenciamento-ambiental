@@ -1,6 +1,7 @@
 import { version as uuidVersion } from "uuid";
 import orchestrator from "tests/orchestrator.js";
 import webserver from "infra/webserver.js";
+import person from "models/person.js";
 
 beforeAll(async () => {
   await orchestrator.waitForAllServices();
@@ -64,9 +65,6 @@ describe("POST /api/v1/persons/natural", () => {
 
       expect(responseBody).toEqual({
         id: responseBody.id,
-        cpf: "03819247812",
-        name: "Fulano de Tal",
-        created_by: user.id,
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,
       });
@@ -74,6 +72,34 @@ describe("POST /api/v1/persons/natural", () => {
       expect(uuidVersion(responseBody.id)).toBe(4);
       expect(Date.parse(responseBody.created_at)).not.toBeNaN();
       expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
+    });
+
+    test("Links person to the authenticated user when CPF matches", async () => {
+      const user = await orchestrator.createUser({ cpf: "03819247813" });
+      const activatedUser = await orchestrator.activateUser(user);
+      const userSessionObject = await orchestrator.createSession(activatedUser);
+
+      const response = await fetch(
+        `${webserver.origin}/api/v1/persons/natural`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `session_id=${userSessionObject.token}`,
+          },
+          body: JSON.stringify({
+            cpf: activatedUser.cpf,
+            name: "Fulano de Tal",
+          }),
+        },
+      );
+
+      expect(response.status).toBe(201);
+
+      const responseBody = await response.json();
+      const createdPerson = await person.findNaturalById(responseBody.id);
+
+      expect(createdPerson.user_id).toBe(activatedUser.id);
     });
 
     test("With duplicated `CPF`", async () => {

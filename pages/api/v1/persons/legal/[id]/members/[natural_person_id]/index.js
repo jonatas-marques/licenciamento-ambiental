@@ -7,8 +7,8 @@ import { ForbiddenError } from "infra/errors.js";
 export default createRouter()
   .use(controller.injectAnonymousOrUser)
   .get(getHandler)
-  .patch(controller.canRequest("update:person"), patchHandler)
-  .delete(controller.canRequest("update:person"), deleteHandler)
+  .patch(controller.canRequest("update:project"), patchHandler)
+  .delete(controller.canRequest("update:project"), deleteHandler)
   .handler(controller.errorHandlers);
 
 async function getHandler(request, response) {
@@ -23,7 +23,7 @@ async function getHandler(request, response) {
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToGet,
-    "read:person",
+    "read:project",
     membership,
   );
 
@@ -37,7 +37,7 @@ async function patchHandler(request, response) {
 
   const targetLegalPerson = await person.findLegalById(legalPersonId);
   if (
-    !authorization.can(userTryingToPatch, "update:person", targetLegalPerson)
+    !authorization.can(userTryingToPatch, "update:project", targetLegalPerson)
   ) {
     throw new ForbiddenError({
       message: "Você não possui permissão para atualizar essa pessoa.",
@@ -56,7 +56,7 @@ async function patchHandler(request, response) {
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPatch,
-    "read:person",
+    "read:project",
     updatedMembership,
   );
 
@@ -70,7 +70,7 @@ async function deleteHandler(request, response) {
 
   const targetLegalPerson = await person.findLegalById(legalPersonId);
   if (
-    !authorization.can(userTryingToDelete, "update:person", targetLegalPerson)
+    !authorization.can(userTryingToDelete, "update:project", targetLegalPerson)
   ) {
     throw new ForbiddenError({
       message: "Você não possui permissão para atualizar essa pessoa.",
@@ -86,7 +86,7 @@ async function deleteHandler(request, response) {
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToDelete,
-    "read:person",
+    "read:project",
     deletedMembership,
   );
 
