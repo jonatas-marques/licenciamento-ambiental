@@ -55,59 +55,28 @@ async function listByUserId(userId) {
 async function create(newProjectInputValues) {
   await validateUniqueName(newProjectInputValues.name);
 
-  const createdProject = await runInsertQueryIntoProjects(
-    newProjectInputValues,
-  );
-
-  const projectCreatorMembershipValues = {
-    project_id: createdProject.id,
-    user_id: newProjectInputValues.created_by,
-    role: "owner",
-  };
-  await runInsertQueryIntoProjectMembers(projectCreatorMembershipValues);
-  /**
-   * First user to create the project is the owner, so we add
-   * the project creator as a member with the "owner" role.
-   */
-  // Alternativamente rodar insertQuery ? Pode necessitar try para nao criar membros ou projetso órfãos
-  // const createdProjectMember = await runInsertQueryIntoProjectMembers(createdProject);
-
-  return createdProject;
-
-  async function runInsertQueryIntoProjects(newProjectInputValues) {
-    const results = await database.query({
+  return database.transaction(async (client) => {
+    const projectResults = await client.query({
       text: `
-        INSERT INTO 
-            projects (name, created_by) 
-        VALUES 
-            ($1, $2)
-        RETURNING 
-            *
-        ;`,
+        INSERT INTO projects (name, created_by)
+        VALUES ($1, $2)
+        RETURNING *;
+      `,
       values: [newProjectInputValues.name, newProjectInputValues.created_by],
     });
-    return results.rows[0];
-  }
-  async function runInsertQueryIntoProjectMembers(
-    projectCreatorMembershipValues,
-  ) {
-    const results = await database.query({
+
+    const createdProject = projectResults.rows[0];
+
+    await client.query({
       text: `
-        INSERT INTO 
-            project_members (project_id, user_id, role) 
-        VALUES 
-            ($1, $2, $3)
-        RETURNING 
-            *
-        ;`,
-      values: [
-        projectCreatorMembershipValues.project_id,
-        projectCreatorMembershipValues.user_id,
-        projectCreatorMembershipValues.role,
-      ],
+        INSERT INTO project_members (project_id, user_id, role)
+        VALUES ($1, $2, $3);
+      `,
+      values: [createdProject.id, newProjectInputValues.created_by, "owner"],
     });
-    return results.rows[0];
-  }
+
+    return createdProject;
+  });
 }
 
 async function validateUniqueName(name) {
