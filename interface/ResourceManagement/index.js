@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   Banner,
   Button,
@@ -8,7 +7,7 @@ import {
   Text,
   TextInput,
 } from "@primer/react";
-import { Card } from "@primer/react/experimental";
+import { Blankslate, Card } from "@primer/react/experimental";
 import { PencilIcon, PlusIcon } from "@primer/octicons-react";
 import styles from "./index.module.css";
 
@@ -22,55 +21,21 @@ export default function ResourceManagement({
   emptyTitle,
   emptyDescription,
   fields,
-  endpoint,
+  items,
+  loadingStatus,
+  errorMessage,
+  canCreate,
+  isCreating,
+  onCreateClick,
+  onCancelCreate,
+  onSubmit,
+  formValues,
+  onFieldChange,
+  submitStatus,
+  submitErrorMessage,
+  successMessage,
+  actionsMessage,
 }) {
-  const [isCreating, setIsCreating] = useState(false);
-  const [items, setItems] = useState([]);
-  const [loadingStatus, setLoadingStatus] = useState("loading");
-  const [errorMessage, setErrorMessage] = useState(null);
-
-  useEffect(() => {
-    let isCurrentRequest = true;
-
-    async function loadItems() {
-      setLoadingStatus("loading");
-      setErrorMessage(null);
-
-      try {
-        const response = await fetch(endpoint);
-        const responseBody = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            `${responseBody.message} ${responseBody.action}`.trim(),
-          );
-        }
-
-        if (!Array.isArray(responseBody)) {
-          throw new Error("A resposta da API possui um formato inválido.");
-        }
-
-        if (isCurrentRequest) {
-          setItems(responseBody);
-          setLoadingStatus("success");
-        }
-      } catch (error) {
-        if (isCurrentRequest) {
-          setErrorMessage(
-            error.message || `Não foi possível carregar ${pluralName}.`,
-          );
-          setLoadingStatus("failure");
-        }
-      }
-    }
-
-    loadItems();
-
-    return () => {
-      isCurrentRequest = false;
-    };
-  }, [endpoint, pluralName]);
-
   return (
     <Stack gap="spacious">
       <div className={styles.pageHeader}>
@@ -81,43 +46,76 @@ export default function ResourceManagement({
         <Button
           leadingVisual={PlusIcon}
           variant="primary"
-          onClick={() => setIsCreating((current) => !current)}
+          onClick={onCreateClick}
+          disabled={!canCreate}
           aria-expanded={isCreating}
         >
           Criar {resourceName}
         </Button>
       </div>
 
-      <Banner
-        title="Ações disponíveis em breve"
-        description={`A criação e a edição de ${pluralName} serão conectadas às APIs em uma próxima etapa.`}
-      />
+      {actionsMessage && (
+        <Banner
+          title="Ações disponíveis em breve"
+          description={actionsMessage}
+        />
+      )}
 
       {isCreating && (
         <Card>
-          <Stack gap="normal">
-            <Heading as="h2">
-              Novo {article} {resourceName.toLowerCase()}
-            </Heading>
-            {fields.map((field) => (
-              <FormControl key={field.name}>
-                <FormControl.Label>{field.label}</FormControl.Label>
-                <TextInput
-                  type={field.type || "text"}
-                  placeholder={field.placeholder}
-                  block
-                  disabled
+          <form onSubmit={onSubmit}>
+            <Stack gap="normal">
+              <Heading as="h2">
+                Novo {article} {resourceName.toLowerCase()}
+              </Heading>
+              {fields.map((field) => (
+                <FormControl key={field.name}>
+                  <FormControl.Label>{field.label}</FormControl.Label>
+                  <TextInput
+                    type={field.type || "text"}
+                    placeholder={field.placeholder}
+                    block
+                    maxLength={field.maxLength}
+                    inputMode={field.inputMode}
+                    value={formValues[field.name] ?? ""}
+                    onChange={(event) =>
+                      onFieldChange(field.name, event.target.value)
+                    }
+                    required={field.required !== false}
+                    disabled={submitStatus === "loading"}
+                  />
+                </FormControl>
+              ))}
+              {submitErrorMessage && (
+                <Banner
+                  variant="critical"
+                  title="Não foi possível criar"
+                  description={submitErrorMessage}
                 />
-              </FormControl>
-            ))}
-            <div className={styles.formActions}>
-              <Button onClick={() => setIsCreating(false)}>Cancelar</Button>
-              <Button variant="primary" disabled>
-                Salvar
-              </Button>
-            </div>
-          </Stack>
+              )}
+              <div className={styles.formActions}>
+                <Button
+                  type="button"
+                  onClick={onCancelCreate}
+                  disabled={submitStatus === "loading"}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={submitStatus === "loading"}
+                >
+                  {submitStatus === "loading" ? "Salvando..." : "Salvar"}
+                </Button>
+              </div>
+            </Stack>
+          </form>
         </Card>
+      )}
+
+      {successMessage && (
+        <Banner title="Cadastro realizado" description={successMessage} />
       )}
 
       {loadingStatus === "loading" && <Text>Carregando {pluralName}...</Text>}
@@ -130,22 +128,19 @@ export default function ResourceManagement({
         />
       )}
 
-      {loadingStatus === "success" && items.length === 0 ? (
-        <section className={styles.emptyState}>
-          <div className={styles.emptyIcon}>
-            <PlusIcon size={24} />
-          </div>
-          <Heading as="h2">{emptyTitle}</Heading>
-          <Text>{emptyDescription}</Text>
-          <Button
-            variant="primary"
-            leadingVisual={PlusIcon}
-            onClick={() => setIsCreating(true)}
-          >
-            Criar {firstOrdinal} {resourceName.toLowerCase()}
-          </Button>
-        </section>
-      ) : loadingStatus === "success" ? (
+      {loadingStatus === "success" && items.length === 0 && (
+        <Blankslate spacious border>
+          <Blankslate.Heading>{emptyTitle}</Blankslate.Heading>
+          <Blankslate.Description>{emptyDescription}</Blankslate.Description>
+          {canCreate && (
+            <Blankslate.PrimaryAction onClick={onCreateClick}>
+              Criar {firstOrdinal} {resourceName.toLowerCase()}
+            </Blankslate.PrimaryAction>
+          )}
+        </Blankslate>
+      )}
+
+      {loadingStatus === "success" && items.length > 0 && (
         <Stack gap="normal">
           <Heading as="h2">Itens vinculados à sua conta</Heading>
           {items.map((item) => (
@@ -175,7 +170,7 @@ export default function ResourceManagement({
             </Card>
           ))}
         </Stack>
-      ) : null}
+      )}
     </Stack>
   );
 }
