@@ -28,6 +28,7 @@ const availableFeatures = [
   "read:person",
   "read:person:self",
   "update:person",
+  "update:person:others",
 
   // PROJECT
   "create:project",

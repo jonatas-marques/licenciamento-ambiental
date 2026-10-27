@@ -1,5 +1,10 @@
 import database from "infra/database.js";
-import { ValidationError, NotFoundError, ConflictError } from "infra/errors.js";
+import {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  ForbiddenError,
+} from "infra/errors.js";
 
 async function findNaturalById(id) {
   const naturalPersonFound = await runSelectQuery(id);
@@ -92,6 +97,43 @@ async function listLegalPersonsByUser(userObject) {
   });
 
   return results.rows;
+}
+
+async function ensureRequesterIsLegalPersonMember(legalPersonId, userObject) {
+  let naturalPerson;
+
+  try {
+    naturalPerson = await findOneByUser(userObject);
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      throw new ForbiddenError({
+        message: "Você não é membro desta organização.",
+        action: "Solicite acesso a um membro da organização.",
+      });
+    }
+
+    throw error;
+  }
+
+  const results = await database.query({
+    text: `
+      SELECT id
+      FROM legal_person_members
+      WHERE legal_person_id = $1
+        AND natural_person_id = $2
+        AND valid_from <= timezone('utc', now())
+        AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
+      LIMIT 1;
+    `,
+    values: [legalPersonId, naturalPerson.id],
+  });
+
+  if (results.rowCount === 0) {
+    throw new ForbiddenError({
+      message: "Você não é membro desta organização.",
+      action: "Solicite acesso a um membro da organização.",
+    });
+  }
 }
 
 async function findOneByUserId(userId) {
@@ -430,11 +472,17 @@ async function updateNaturalPerson(personId, userInputValues) {
 async function updateLegalPerson(personId, userInputValues) {
   const currentLegalPerson = await findLegalById(personId);
 
-  if ("name" in userInputValues) {
+  if (
+    "name" in userInputValues &&
+    userInputValues.name !== currentLegalPerson.name
+  ) {
     await validateUniqueLegalName(userInputValues.name);
   }
 
-  if ("cnpj" in userInputValues) {
+  if (
+    "cnpj" in userInputValues &&
+    userInputValues.cnpj !== currentLegalPerson.cnpj
+  ) {
     await validateUniqueCNPJ(userInputValues.cnpj);
   }
 
@@ -686,6 +734,7 @@ async function linkUser(naturalPersonId, userId) {
 const person = {
   findLegalById,
   listLegalPersonsByUser,
+  ensureRequesterIsLegalPersonMember,
   findNaturalById,
   findOneByUserId,
   findOneByUser,
