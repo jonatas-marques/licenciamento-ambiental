@@ -150,7 +150,7 @@ export default function OrganizationsPage() {
         submitStatus={submitStatus}
         submitErrorMessage={submitErrorMessage}
         successMessage={successMessage}
-        actionsMessage="A edição de organizações será conectada às APIs em uma próxima etapa."
+        getEditHref={(organization) => `/organizacao/${organization.id}`}
       />
     </DefaultLayout>
   );

@@ -9,6 +9,7 @@ import {
 } from "@primer/react";
 import { Blankslate, Card } from "@primer/react/experimental";
 import { PencilIcon, PlusIcon } from "@primer/octicons-react";
+import Link from "next/link";
 import styles from "./index.module.css";
 
 export default function ResourceManagement({
@@ -35,7 +36,7 @@ export default function ResourceManagement({
   submitErrorMessage,
   successMessage,
   actionsMessage,
-  onEdit,
+  getEditHref,
 }) {
   return (
     <Stack gap="spacious">
@@ -160,16 +161,11 @@ export default function ResourceManagement({
               {item.detail && <Text>{item.detail}</Text>}
               <Card.Action>
                 <Button
-                  type="button"
+                  as={Link}
                   size="small"
                   leadingVisual={PencilIcon}
-                  disabled={!onEdit}
+                  href={getEditHref(item)}
                   aria-label={`Editar ${item.name}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onEdit?.(item);
-                  }}
                 >
                   Editar
                 </Button>
