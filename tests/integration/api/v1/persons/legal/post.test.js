@@ -1,5 +1,6 @@
 import { version as uuidVersion } from "uuid";
 import orchestrator from "tests/orchestrator.js";
+import person from "models/person.js";
 import webserver from "infra/webserver.js";
 
 beforeAll(async () => {
@@ -36,10 +37,55 @@ describe("POST /api/v1/persons/legal", () => {
   });
 
   describe("Default user", () => {
+    test("Requires a natural person profile to create an organization", async () => {
+      const user = await orchestrator.createUser();
+      const activatedUser = await orchestrator.activateUser(user);
+      const userSessionObject = await orchestrator.createSession(activatedUser);
+
+      const response = await fetch(`${webserver.origin}/api/v1/persons/legal`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `session_id=${userSessionObject.token}`,
+        },
+        body: JSON.stringify({
+          name: "Empresa sem pessoa física",
+          cnpj: "12345678000123",
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        name: "ValidationError",
+        message: "Cadastro de pessoa física necessário.",
+        action:
+          "Complete seu cadastro de pessoa física antes de criar uma organização.",
+        status_code: 400,
+      });
+
+      const listResponse = await fetch(
+        `${webserver.origin}/api/v1/persons/legal`,
+        {
+          headers: {
+            Cookie: `session_id=${userSessionObject.token}`,
+          },
+        },
+      );
+
+      expect(listResponse.status).toBe(200);
+      expect(await listResponse.json()).toEqual([]);
+    });
+
     test("With valid data", async () => {
       const user = await orchestrator.createUser();
       const activatedUser = await orchestrator.activateUser(user);
       const userSessionObject = await orchestrator.createSession(activatedUser);
+      const naturalPerson = await person.createNaturalPerson({
+        name: "Pessoa responsável pela empresa",
+        cpf: activatedUser.cpf,
+        created_by: activatedUser.id,
+        user_id: activatedUser.id,
+      });
 
       const response = await fetch(`${webserver.origin}/api/v1/persons/legal`, {
         method: "POST",
@@ -66,12 +112,42 @@ describe("POST /api/v1/persons/legal", () => {
       expect(uuidVersion(responseBody.id)).toBe(4);
       expect(Date.parse(responseBody.created_at)).not.toBeNaN();
       expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
+
+      const memberships = await person.listLegalPersonMembers(responseBody.id);
+
+      expect(memberships).toEqual([
+        expect.objectContaining({
+          legal_person_id: responseBody.id,
+          natural_person_id: naturalPerson.id,
+          role: "socio",
+        }),
+      ]);
+
+      const listResponse = await fetch(
+        `${webserver.origin}/api/v1/persons/legal`,
+        {
+          headers: {
+            Cookie: `session_id=${userSessionObject.token}`,
+          },
+        },
+      );
+
+      expect(listResponse.status).toBe(200);
+      expect(await listResponse.json()).toEqual([
+        expect.objectContaining({ id: responseBody.id }),
+      ]);
     });
 
     test("With duplicated `CNPJ`", async () => {
       const user = await orchestrator.createUser();
-      await orchestrator.activateUser(user);
+      const activatedUser = await orchestrator.activateUser(user);
       const userSessionObject = await orchestrator.createSession(user);
+      await person.createNaturalPerson({
+        name: "Pessoa responsável pela empresa",
+        cpf: activatedUser.cpf,
+        created_by: activatedUser.id,
+        user_id: activatedUser.id,
+      });
 
       const response1 = await fetch(
         `${webserver.origin}/api/v1/persons/legal`,

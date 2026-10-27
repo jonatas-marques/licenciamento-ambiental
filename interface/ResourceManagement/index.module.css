@@ -1,0 +1,24 @@
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.description {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--fgColor-muted);
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 40rem) {
+  .pageHeader {
+    flex-direction: column;
+  }
+}

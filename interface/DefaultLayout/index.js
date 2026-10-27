@@ -6,11 +6,13 @@ import {
   Text,
   ActionMenu,
   ActionList,
+  UnderlineNav,
 } from "@primer/react";
 
 import {
   OrganizationIcon,
   PersonIcon,
+  RepoIcon,
   SignOutIcon,
 } from "@primer/octicons-react";
 import Link from "next/link";
@@ -24,6 +26,7 @@ export default function DefaultLayout({
   children,
   metadata = {},
   contentWidth,
+  subNavigation,
 }) {
   const [user, setUser] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
@@ -107,6 +110,10 @@ export default function DefaultLayout({
                       <OrganizationIcon size={16} />
                       Organização
                     </ActionList.LinkItem>
+                    <ActionList.LinkItem as={Link} href="/projetos">
+                      <RepoIcon size={16} />
+                      Projetos
+                    </ActionList.LinkItem>
                     <ActionList.Item variant="danger" onSelect={handleLogout}>
                       <SignOutIcon size={16} />
                       Sair
@@ -124,6 +131,20 @@ export default function DefaultLayout({
           width={contentWidth}
           className={extraContentClassName}
         >
+          {subNavigation?.items?.length > 0 && (
+            <UnderlineNav aria-label={subNavigation.ariaLabel} variant="flush">
+              {subNavigation.items.map((item) => (
+                <UnderlineNav.Item
+                  key={item.href}
+                  as={Link}
+                  href={item.href}
+                  aria-current={item.current ? "page" : undefined}
+                >
+                  {item.label}
+                </UnderlineNav.Item>
+              ))}
+            </UnderlineNav>
+          )}
           {children}
         </PageLayout.Content>
         <PageLayout.Footer divider="line">

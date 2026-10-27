@@ -1,5 +1,10 @@
 import database from "infra/database.js";
-import { ValidationError, NotFoundError, ConflictError } from "infra/errors.js";
+import {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  ForbiddenError,
+} from "infra/errors.js";
 
 async function findNaturalById(id) {
   const naturalPersonFound = await runSelectQuery(id);
@@ -58,6 +63,76 @@ async function findLegalById(id) {
       });
     }
     return results.rows[0];
+  }
+}
+
+async function listLegalPersonsByUser(userObject) {
+  let naturalPerson;
+
+  try {
+    naturalPerson = await findOneByUser(userObject);
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      return [];
+    }
+
+    throw error;
+  }
+
+  const results = await database.query({
+    text: `
+      SELECT legal_persons.*
+      FROM legal_persons
+      INNER JOIN legal_person_members
+        ON legal_person_members.legal_person_id = legal_persons.id
+      WHERE legal_person_members.natural_person_id = $1
+        AND legal_person_members.valid_from <= timezone('utc', now())
+        AND (
+          legal_person_members.valid_to IS NULL
+          OR legal_person_members.valid_to >= timezone('utc', now())
+        )
+      ORDER BY legal_persons.name ASC;
+    `,
+    values: [naturalPerson.id],
+  });
+
+  return results.rows;
+}
+
+async function ensureRequesterIsLegalPersonMember(legalPersonId, userObject) {
+  let naturalPerson;
+
+  try {
+    naturalPerson = await findOneByUser(userObject);
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      throw new ForbiddenError({
+        message: "Você não é membro desta organização.",
+        action: "Solicite acesso a um membro da organização.",
+      });
+    }
+
+    throw error;
+  }
+
+  const results = await database.query({
+    text: `
+      SELECT id
+      FROM legal_person_members
+      WHERE legal_person_id = $1
+        AND natural_person_id = $2
+        AND valid_from <= timezone('utc', now())
+        AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
+      LIMIT 1;
+    `,
+    values: [legalPersonId, naturalPerson.id],
+  });
+
+  if (results.rowCount === 0) {
+    throw new ForbiddenError({
+      message: "Você não é membro desta organização.",
+      action: "Solicite acesso a um membro da organização.",
+    });
   }
 }
 
@@ -243,6 +318,57 @@ async function createLegalPerson(userInputValues) {
   }
 }
 
+async function createLegalPersonForUser(userInputValues, userObject) {
+  let naturalPerson;
+
+  try {
+    naturalPerson = await findOneByUser(userObject);
+  } catch (error) {
+    if (!(error instanceof NotFoundError)) {
+      throw error;
+    }
+
+    throw new ValidationError({
+      message: "Cadastro de pessoa física necessário.",
+      action:
+        "Complete seu cadastro de pessoa física antes de criar uma organização.",
+    });
+  }
+
+  await validateUniqueCNPJ(userInputValues.cnpj);
+  await validateUniqueLegalName(userInputValues.name);
+
+  return database.transaction(async (client) => {
+    const legalPersonResults = await client.query({
+      text: `
+        INSERT INTO legal_persons (cnpj, name, created_by)
+        VALUES ($1, $2, $3)
+        RETURNING *;
+      `,
+      values: [
+        userInputValues.cnpj,
+        userInputValues.name,
+        userInputValues.created_by,
+      ],
+    });
+    const legalPerson = legalPersonResults.rows[0];
+
+    await client.query({
+      text: `
+        INSERT INTO legal_person_members (
+          legal_person_id,
+          natural_person_id,
+          role
+        )
+        VALUES ($1, $2, $3);
+      `,
+      values: [legalPerson.id, naturalPerson.id, "socio"],
+    });
+
+    return legalPerson;
+  });
+}
+
 async function validateUniqueCPF(cpf) {
   const results = await database.query({
     text: `
@@ -346,11 +472,17 @@ async function updateNaturalPerson(personId, userInputValues) {
 async function updateLegalPerson(personId, userInputValues) {
   const currentLegalPerson = await findLegalById(personId);
 
-  if ("name" in userInputValues) {
+  if (
+    "name" in userInputValues &&
+    userInputValues.name !== currentLegalPerson.name
+  ) {
     await validateUniqueLegalName(userInputValues.name);
   }
 
-  if ("cnpj" in userInputValues) {
+  if (
+    "cnpj" in userInputValues &&
+    userInputValues.cnpj !== currentLegalPerson.cnpj
+  ) {
     await validateUniqueCNPJ(userInputValues.cnpj);
   }
 
@@ -601,6 +733,8 @@ async function linkUser(naturalPersonId, userId) {
 
 const person = {
   findLegalById,
+  listLegalPersonsByUser,
+  ensureRequesterIsLegalPersonMember,
   findNaturalById,
   findOneByUserId,
   findOneByUser,
@@ -608,6 +742,7 @@ const person = {
   findOneByCnpj,
   createNaturalPerson,
   createLegalPerson,
+  createLegalPersonForUser,
   updateNaturalPerson,
   updateLegalPerson,
   linkUser,

@@ -6,7 +6,7 @@ import { ForbiddenError } from "infra/errors.js";
 
 export default createRouter()
   .use(controller.injectAnonymousOrUser)
-  .get(getHandler)
+  .get(controller.canRequest("read:project"), getHandler)
   .patch(controller.canRequest("update:project"), patchHandler)
   .handler(controller.errorHandlers);
 
@@ -14,6 +14,16 @@ async function getHandler(request, response) {
   const userTryingToGet = request.context.user;
   const projectId = request.query.id;
   const projectFound = await project.findOneById(projectId);
+
+  response.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, max-age=0, must-revalidate",
+  );
+
+  await project.ensureRequesterIsMemberOrThrowForbidden(
+    projectId,
+    userTryingToGet,
+  );
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToGet,
@@ -39,7 +49,14 @@ async function patchHandler(request, response) {
     });
   }
 
-  const updatedProject = await project.update(projectId, userInputValues);
+  await project.ensureCanUpdateProject(projectId, userTryingToPatch);
+  project.validateUpdateInput(userInputValues);
+
+  const updatedProject = await project.update(
+    projectId,
+    userInputValues,
+    userTryingToPatch.id,
+  );
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPatch,
