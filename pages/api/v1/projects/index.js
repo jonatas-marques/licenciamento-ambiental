@@ -30,12 +30,12 @@ async function getHandler(request, response) {
 async function postHandler(request, response) {
   const userTryingToPost = request.context.user;
   const userInputValues = request.body;
-  const projectInputValues = {
-    ...userInputValues,
-    created_by: userTryingToPost.id, // Vem do servidor, não do Cliente!
-  };
+  project.validateCreateInput(userInputValues);
 
-  const newProject = await project.create(projectInputValues);
+  const newProject = await project.create({
+    name: userInputValues.name,
+    created_by: userTryingToPost.id,
+  });
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPost,

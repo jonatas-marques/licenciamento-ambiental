@@ -6,6 +6,78 @@ import {
 } from "infra/errors.js";
 
 const allowedMemberRoles = ["owner", "admin", "member", "viewer"];
+const allowedProjectStatuses = ["active", "archived"];
+
+function validateCreateInput(inputValues) {
+  validateObject(inputValues);
+  validateAllowedFields(inputValues, ["name"]);
+  validateProjectName(inputValues.name);
+}
+
+function validateUpdateInput(inputValues) {
+  validateObject(inputValues);
+  validateAllowedFields(inputValues, ["name", "status"]);
+
+  if (Object.keys(inputValues).length === 0) {
+    throw new ValidationError({
+      message: "Nenhum campo para atualizar.",
+      action: "Informe ao menos 'name' ou 'status'.",
+    });
+  }
+
+  if ("name" in inputValues) {
+    validateProjectName(inputValues.name);
+  }
+
+  if (
+    "status" in inputValues &&
+    !allowedProjectStatuses.includes(inputValues.status)
+  ) {
+    throw new ValidationError({
+      message: "Status inválido para o projeto.",
+      action: "Use 'active' ou 'archived'.",
+    });
+  }
+}
+
+function validateObject(inputValues) {
+  if (
+    !inputValues ||
+    typeof inputValues !== "object" ||
+    Array.isArray(inputValues)
+  ) {
+    throw new ValidationError({
+      message: "Dados do projeto inválidos.",
+      action: "Envie um objeto JSON com os campos permitidos.",
+    });
+  }
+}
+
+function validateAllowedFields(inputValues, allowedFields) {
+  const unexpectedFields = Object.keys(inputValues).filter(
+    (field) => !allowedFields.includes(field),
+  );
+
+  if (unexpectedFields.length > 0) {
+    throw new ValidationError({
+      message: "A operação contém campos não permitidos.",
+      action: `Remova os campos não aceitos: ${unexpectedFields.join(", ")}.`,
+    });
+  }
+}
+
+function validateProjectName(name) {
+  if (
+    typeof name !== "string" ||
+    name.trim().length === 0 ||
+    name.trim().length > 254
+  ) {
+    throw new ValidationError({
+      message: "Nome do projeto inválido.",
+      action: "Informe um nome com até 254 caracteres.",
+    });
+  }
+}
 
 async function findOneById(projectId) {
   const results = await database.query({
@@ -53,16 +125,20 @@ async function listByUserId(userId) {
 }
 
 async function create(newProjectInputValues) {
+  validateProjectName(newProjectInputValues.name);
   await validateUniqueName(newProjectInputValues.name);
 
   return database.transaction(async (client) => {
     const projectResults = await client.query({
       text: `
-        INSERT INTO projects (name, created_by)
-        VALUES ($1, $2)
+        INSERT INTO projects (name, created_by, updated_by)
+        VALUES ($1, $2, $2)
         RETURNING *;
       `,
-      values: [newProjectInputValues.name, newProjectInputValues.created_by],
+      values: [
+        newProjectInputValues.name.trim(),
+        newProjectInputValues.created_by,
+      ],
     });
 
     const createdProject = projectResults.rows[0];
@@ -89,7 +165,7 @@ async function validateUniqueName(name) {
       WHERE 
         name = $1
       ;`,
-    values: [name],
+    values: [name.trim()],
   });
 
   if (results.rowCount > 0) {
@@ -102,38 +178,45 @@ async function validateUniqueName(name) {
   }
 }
 
-async function update(id, userInputValues) {
+async function update(id, userInputValues, updatedBy) {
+  validateUpdateInput(userInputValues);
   const currentProject = await findOneById(id);
 
   if (
     "name" in userInputValues &&
-    userInputValues.name !== currentProject.name
+    userInputValues.name.trim() !== currentProject.name
   ) {
     await validateUniqueName(userInputValues.name);
   }
 
-  const projectWithNewValues = { ...currentProject, ...userInputValues };
+  const fields = [];
+  const values = [id];
+  let nextIndex = 2;
 
-  const updatedProject = await runUpdateQuery(projectWithNewValues);
-  return updatedProject;
-
-  async function runUpdateQuery(projectWithNewValues) {
-    const results = await database.query({
-      text: `
-        UPDATE 
-            projects
-        SET 
-            name = $2,
-            updated_at = timezone('utc'::text, now())
-        WHERE
-            id = $1
-        RETURNING
-            *
-        ;`,
-      values: [projectWithNewValues.id, projectWithNewValues.name],
-    });
-    return results.rows[0];
+  if ("name" in userInputValues) {
+    fields.push(`name = $${nextIndex++}`);
+    values.push(userInputValues.name.trim());
   }
+
+  if ("status" in userInputValues) {
+    fields.push(`status = $${nextIndex++}`);
+    values.push(userInputValues.status);
+  }
+
+  fields.push(`updated_by = $${nextIndex++}`);
+  values.push(updatedBy);
+  fields.push("updated_at = timezone('utc'::text, now())");
+
+  const results = await database.query({
+    text: `
+      UPDATE projects
+      SET ${fields.join(", ")}
+      WHERE id = $1
+      RETURNING *;
+    `,
+    values,
+  });
+  return results.rows[0];
 }
 
 async function getMembership(projectId, member) {
@@ -350,6 +433,7 @@ async function listMembers(requestingUser, projectId) {
       SELECT *
       FROM project_members
       WHERE project_id = $1
+        AND valid_from <= timezone('utc', now())
         AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
       ORDER BY valid_from ASC;
     `,
@@ -505,6 +589,8 @@ const project = {
   ensureRequesterIsMemberOrThrowForbidden,
   ensureCanUpdateProject,
   validateUniqueName,
+  validateCreateInput,
+  validateUpdateInput,
   addMember,
   validateUniqueMember,
 };

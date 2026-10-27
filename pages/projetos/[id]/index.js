@@ -7,6 +7,7 @@ import {
   Stack,
   Text,
   TextInput,
+  useConfirm,
 } from "@primer/react";
 import { useRouter } from "next/router";
 import DefaultLayout from "../../../interface/DefaultLayout";
@@ -16,9 +17,12 @@ export default function ProjectDetailsPage() {
   const router = useRouter();
   const projectId = router.query.id;
   const [name, setName] = useState("");
+  const [projectStatus, setProjectStatus] = useState("active");
   const [loadingStatus, setLoadingStatus] = useState("loading");
   const [submitStatus, setSubmitStatus] = useState("idle");
   const [errorMessage, setErrorMessage] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (!router.isReady || typeof projectId !== "string") {
@@ -43,6 +47,7 @@ export default function ProjectDetailsPage() {
 
         if (isCurrentRequest) {
           setName(responseBody.name);
+          setProjectStatus(responseBody.status);
           setLoadingStatus("success");
         }
       } catch (error) {
@@ -66,6 +71,7 @@ export default function ProjectDetailsPage() {
     event.preventDefault();
     setSubmitStatus("loading");
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       const response = await fetch(`/api/v1/projects/${projectId}`, {
@@ -90,6 +96,49 @@ export default function ProjectDetailsPage() {
     }
   }
 
+  async function handleArchive() {
+    const confirmed = await confirm({
+      title: "Arquivar projeto?",
+      content:
+        "O projeto continuará disponível na lista, identificado como arquivado.",
+      confirmButtonContent: "Arquivar projeto",
+      confirmButtonType: "danger",
+      cancelButtonContent: "Cancelar",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setSubmitStatus("loading");
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await fetch(`/api/v1/projects/${projectId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "archived" }),
+      });
+      const responseBody = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          `${responseBody.message} ${responseBody.action}`.trim(),
+        );
+      }
+
+      setProjectStatus(responseBody.status);
+      setSubmitStatus("success");
+      setSuccessMessage("O projeto foi arquivado.");
+    } catch (error) {
+      setErrorMessage(error.message || "Não foi possível arquivar o projeto.");
+      setSubmitStatus("failure");
+    }
+  }
+
   return (
     <DefaultLayout
       contentWidth="small"
@@ -105,6 +154,9 @@ export default function ProjectDetailsPage() {
         {loadingStatus === "success" && (
           <Stack gap="normal">
             <Heading as="h1">{name}</Heading>
+            <Text>
+              Status: {projectStatus === "archived" ? "Arquivado" : "Ativo"}
+            </Text>
             <Heading as="h2">Dados do projeto</Heading>
             <form onSubmit={handleSubmit}>
               <Stack gap="normal">
@@ -127,6 +179,12 @@ export default function ProjectDetailsPage() {
                     description={errorMessage}
                   />
                 )}
+                {successMessage && (
+                  <Banner
+                    title="Alteração realizada"
+                    description={successMessage}
+                  />
+                )}
                 <div>
                   <Button
                     type="button"
@@ -142,6 +200,16 @@ export default function ProjectDetailsPage() {
                   >
                     {submitStatus === "loading" ? "Salvando..." : "Salvar"}
                   </Button>
+                  {projectStatus === "active" && (
+                    <Button
+                      type="button"
+                      variant="danger"
+                      onClick={handleArchive}
+                      disabled={submitStatus === "loading"}
+                    >
+                      Arquivar projeto
+                    </Button>
+                  )}
                 </div>
               </Stack>
             </form>

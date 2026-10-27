@@ -34,7 +34,15 @@ export default function ProjectsPage() {
         }
 
         if (isCurrentRequest) {
-          setProjects(responseBody);
+          setProjects(
+            responseBody.map((project) => ({
+              ...project,
+              detail:
+                project.status === "archived"
+                  ? "Projeto arquivado"
+                  : "Projeto ativo",
+            })),
+          );
           setLoadingStatus("success");
         }
       } catch (error) {
@@ -85,9 +93,16 @@ export default function ProjectsPage() {
       }
 
       setProjects((currentProjects) =>
-        [...currentProjects, responseBody].sort((a, b) =>
-          a.name.localeCompare(b.name),
-        ),
+        [
+          ...currentProjects,
+          {
+            ...responseBody,
+            detail:
+              responseBody.status === "archived"
+                ? "Projeto arquivado"
+                : "Projeto ativo",
+          },
+        ].sort((a, b) => a.name.localeCompare(b.name)),
       );
       setIsCreating(false);
       setSubmitStatus("success");

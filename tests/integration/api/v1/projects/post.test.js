@@ -1,4 +1,5 @@
 import { version as uuidVersion } from "uuid";
+import database from "infra/database.js";
 import project from "models/project.js";
 import orchestrator from "tests/orchestrator.js";
 import webserver from "infra/webserver.js";
@@ -60,6 +61,8 @@ describe("POST /api/v1/projects", () => {
         id: responseBody.id,
         name: "Unique Project Name",
         created_by: user.id,
+        updated_by: user.id,
+        status: "active",
         created_at: responseBody.created_at,
         updated_at: responseBody.updated_at,
       });
@@ -129,6 +132,97 @@ describe("POST /api/v1/projects", () => {
         action: "Utilize outro nome para realizar esta operação.",
         status_code: 400,
       });
+    });
+
+    test("Rejects empty names and attempts to set server-managed fields", async () => {
+      const user = await orchestrator.createUser();
+      const activatedUser = await orchestrator.activateUser(user);
+      const session = await orchestrator.createSession(activatedUser);
+      const otherUser = await orchestrator.createUser();
+
+      const invalidNameResponse = await fetch(
+        `${webserver.origin}/api/v1/projects`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `session_id=${session.token}`,
+          },
+          body: JSON.stringify({ name: "   " }),
+        },
+      );
+      expect(invalidNameResponse.status).toBe(400);
+
+      const massAssignmentResponse = await fetch(
+        `${webserver.origin}/api/v1/projects`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `session_id=${session.token}`,
+          },
+          body: JSON.stringify({
+            name: "Project with rejected creator",
+            created_by: otherUser.id,
+          }),
+        },
+      );
+      expect(massAssignmentResponse.status).toBe(400);
+
+      const projects = await database.query({
+        text: "SELECT id FROM projects WHERE name = $1;",
+        values: ["Project with rejected creator"],
+      });
+      expect(projects.rowCount).toBe(0);
+    });
+
+    test("Rolls back project creation when owner membership insertion fails", async () => {
+      const user = await orchestrator.createUser();
+      const activatedUser = await orchestrator.activateUser(user);
+      const session = await orchestrator.createSession(activatedUser);
+      const projectName = "Project whose owner insert fails";
+
+      await database.query(`
+        CREATE FUNCTION reject_project_owner_insert()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+          IF NEW.role = 'owner' THEN
+            RAISE EXCEPTION 'Test-only owner insert failure';
+          END IF;
+          RETURN NEW;
+        END;
+        $$;
+        CREATE TRIGGER reject_project_owner_insert
+        BEFORE INSERT ON project_members
+        FOR EACH ROW
+        EXECUTE FUNCTION reject_project_owner_insert();
+      `);
+
+      try {
+        const response = await fetch(`${webserver.origin}/api/v1/projects`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `session_id=${session.token}`,
+          },
+          body: JSON.stringify({ name: projectName }),
+        });
+
+        expect(response.status).toBe(500);
+
+        const projects = await database.query({
+          text: "SELECT id FROM projects WHERE name = $1;",
+          values: [projectName],
+        });
+        expect(projects.rowCount).toBe(0);
+      } finally {
+        await database.query(`
+          DROP TRIGGER reject_project_owner_insert ON project_members;
+          DROP FUNCTION reject_project_owner_insert();
+        `);
+      }
     });
   });
 });

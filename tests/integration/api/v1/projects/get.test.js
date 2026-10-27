@@ -61,6 +61,28 @@ describe("GET /api/v1/projects", () => {
       values: [expiredProject.id, activatedUser.id],
     });
 
+    const futureProject = await orchestrator.createProject({
+      name: "Projeto com vínculo futuro",
+      created_by: activatedOtherUser.id,
+    });
+    await database.query({
+      text: `
+        INSERT INTO project_members (
+          project_id,
+          user_id,
+          role,
+          valid_from
+        )
+        VALUES (
+          $1,
+          $2,
+          'viewer',
+          timezone('utc', now()) + interval '1 day'
+        );
+      `,
+      values: [futureProject.id, activatedUser.id],
+    });
+
     const response = await fetch(`${webserver.origin}/api/v1/projects`, {
       headers: {
         Cookie: `session_id=${session.token}`,

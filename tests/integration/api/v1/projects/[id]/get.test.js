@@ -43,6 +43,24 @@ describe("GET /api/v1/projects/[id]", () => {
   });
 
   describe("Authenticated user", () => {
+    test("Returns 404 for a nonexistent project", async () => {
+      const user = await orchestrator.createUser();
+      const activatedUser = await orchestrator.activateUser(user);
+      const session = await orchestrator.createSession(activatedUser);
+
+      const response = await fetch(
+        `${webserver.origin}/api/v1/projects/766d50d5-c8b8-4f85-9ac5-f3da5b19bd2f`,
+        {
+          headers: {
+            Cookie: `session_id=${session.token}`,
+          },
+        },
+      );
+
+      expect(response.status).toBe(404);
+      expect((await response.json()).message).toBe("Projeto não encontrado.");
+    });
+
     test("A member can read the project", async () => {
       const owner = await orchestrator.createUser();
       const activatedOwner = await orchestrator.activateUser(owner);
@@ -68,6 +86,8 @@ describe("GET /api/v1/projects/[id]", () => {
         id: createdProject.id,
         name: createdProject.name,
         created_by: createdProject.created_by,
+        updated_by: createdProject.updated_by,
+        status: createdProject.status,
         created_at: createdProject.created_at.toISOString(),
         updated_at: createdProject.updated_at.toISOString(),
       });
