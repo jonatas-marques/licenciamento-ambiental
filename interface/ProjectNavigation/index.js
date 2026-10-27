@@ -8,6 +8,7 @@ export default function createProjectNavigation(projectId, currentSection) {
     { id: "project", label: "Projeto", href: projectPath },
     { id: "members", label: "Membros", href: `${projectPath}/membros` },
     { id: "parties", label: "Partes", href: `${projectPath}/partes` },
+    { id: "mce", label: "MCE", href: `${projectPath}/mce` },
     {
       id: "settings",
       label: "Configurações",
