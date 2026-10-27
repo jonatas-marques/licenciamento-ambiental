@@ -37,6 +37,45 @@ describe("POST /api/v1/persons/legal", () => {
   });
 
   describe("Default user", () => {
+    test("Requires a natural person profile to create an organization", async () => {
+      const user = await orchestrator.createUser();
+      const activatedUser = await orchestrator.activateUser(user);
+      const userSessionObject = await orchestrator.createSession(activatedUser);
+
+      const response = await fetch(`${webserver.origin}/api/v1/persons/legal`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `session_id=${userSessionObject.token}`,
+        },
+        body: JSON.stringify({
+          name: "Empresa sem pessoa física",
+          cnpj: "12345678000123",
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        name: "ValidationError",
+        message: "Cadastro de pessoa física necessário.",
+        action:
+          "Complete seu cadastro de pessoa física antes de criar uma organização.",
+        status_code: 400,
+      });
+
+      const listResponse = await fetch(
+        `${webserver.origin}/api/v1/persons/legal`,
+        {
+          headers: {
+            Cookie: `session_id=${userSessionObject.token}`,
+          },
+        },
+      );
+
+      expect(listResponse.status).toBe(200);
+      expect(await listResponse.json()).toEqual([]);
+    });
+
     test("With valid data", async () => {
       const user = await orchestrator.createUser();
       const activatedUser = await orchestrator.activateUser(user);
