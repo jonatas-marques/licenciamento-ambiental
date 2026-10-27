@@ -31,6 +31,27 @@ async function findOneById(projectId) {
   return results.rows[0];
 }
 
+async function listByUserId(userId) {
+  const results = await database.query({
+    text: `
+      SELECT projects.*
+      FROM projects
+      INNER JOIN project_members
+        ON project_members.project_id = projects.id
+      WHERE project_members.user_id = $1
+        AND project_members.valid_from <= timezone('utc', now())
+        AND (
+          project_members.valid_to IS NULL
+          OR project_members.valid_to >= timezone('utc', now())
+        )
+      ORDER BY projects.name ASC;
+    `,
+    values: [userId],
+  });
+
+  return results.rows;
+}
+
 async function create(newProjectInputValues) {
   await validateUniqueName(newProjectInputValues.name);
 
@@ -456,6 +477,7 @@ async function removeMember(requestingUser, projectId, userId) {
 }
 
 const project = {
+  listByUserId,
   listMembers,
   getMember,
   updateMember,

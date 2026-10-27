@@ -11,6 +11,7 @@ import {
 import {
   OrganizationIcon,
   PersonIcon,
+  RepoIcon,
   SignOutIcon,
 } from "@primer/octicons-react";
 import Link from "next/link";
@@ -106,6 +107,10 @@ export default function DefaultLayout({
                     <ActionList.LinkItem as={Link} href="/organizacao">
                       <OrganizationIcon size={16} />
                       Organização
+                    </ActionList.LinkItem>
+                    <ActionList.LinkItem as={Link} href="/projeto">
+                      <RepoIcon size={16} />
+                      Projetos
                     </ActionList.LinkItem>
                     <ActionList.Item variant="danger" onSelect={handleLogout}>
                       <SignOutIcon size={16} />

@@ -19,6 +19,42 @@ async function query(queryObjetc) {
   }
 }
 
+async function transaction(callback) {
+  let client;
+
+  try {
+    client = await getNewClient();
+    await client.query("BEGIN");
+
+    const result = await callback(client);
+
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        throw new ServiceError({
+          message: "Não foi possível reverter a transação do banco de dados.",
+          cause: new AggregateError([error, rollbackError]),
+        });
+      }
+    }
+
+    if (error instanceof ServiceError) {
+      throw error;
+    }
+
+    throw new ServiceError({
+      message: "Erro na transação do banco de dados.",
+      cause: error,
+    });
+  } finally {
+    await client?.end();
+  }
+}
+
 async function getNewClient() {
   const client = new Client({
     host: process.env.POSTGRES_HOST,
@@ -35,6 +71,7 @@ async function getNewClient() {
 
 const database = {
   query,
+  transaction,
   getNewClient,
 };
 
