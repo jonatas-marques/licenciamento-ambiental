@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import ResourceManagement from "../../interface/ResourceManagement";
 import DefaultLayout from "../../interface/DefaultLayout";
+import { useRouter } from "next/router";
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loadingStatus, setLoadingStatus] = useState("loading");
   const [errorMessage, setErrorMessage] = useState(null);
@@ -139,6 +141,7 @@ export default function ProjectsPage() {
         submitStatus={submitStatus}
         submitErrorMessage={submitErrorMessage}
         successMessage={successMessage}
+        onEdit={(project) => router.push(`/projetos/${project.id}`)}
       />
     </DefaultLayout>
   );

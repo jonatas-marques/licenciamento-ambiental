@@ -35,6 +35,7 @@ export default function ResourceManagement({
   submitErrorMessage,
   successMessage,
   actionsMessage,
+  onEdit,
 }) {
   return (
     <Stack gap="spacious">
@@ -159,10 +160,16 @@ export default function ResourceManagement({
               {item.detail && <Text>{item.detail}</Text>}
               <Card.Action>
                 <Button
+                  type="button"
                   size="small"
                   leadingVisual={PencilIcon}
-                  disabled
+                  disabled={!onEdit}
                   aria-label={`Editar ${item.name}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onEdit?.(item);
+                  }}
                 >
                   Editar
                 </Button>

@@ -105,7 +105,10 @@ async function validateUniqueName(name) {
 async function update(id, userInputValues) {
   const currentProject = await findOneById(id);
 
-  if ("name" in userInputValues) {
+  if (
+    "name" in userInputValues &&
+    userInputValues.name !== currentProject.name
+  ) {
     await validateUniqueName(userInputValues.name);
   }
 
@@ -164,29 +167,24 @@ async function getMembership(projectId, member) {
 }
 
 async function addMember(requestingUser, userInputValues) {
-  // `add` means `create` membership
-  // validade unique member for the project
+  validateMemberRole(userInputValues.role);
+
   await validateUniqueMember(
-    // Pode refatorar para utilizar o getMebership()
     userInputValues.project_id,
     userInputValues.user_id,
   );
 
-  const memberTryingToAdd = await getMembership(
+  const memberTryingToAdd = await getMembershipByUserId(
     userInputValues.project_id,
-    requestingUser,
+    requestingUser.id,
   );
 
-  if (!["owner", "admin"].includes(memberTryingToAdd.role)) {
-    throw new ForbiddenError({
-      name: "ForbiddenError",
-      message: "Você não possui permissão para adicionar membros ao projeto.",
-      action:
-        "Apenas usuários com role 'owner' ou 'admin' podem adicionar membros.",
-      status_code: 403,
-    });
+  ensureCanManageMembers(memberTryingToAdd);
+
+  if (userInputValues.role === "owner") {
+    ensureCanManageOwner(memberTryingToAdd);
   }
-  // Implementation for inserting member into project_members table.
+
   const addedMember = await runInsertQuery(userInputValues);
   return addedMember;
 
@@ -249,6 +247,7 @@ async function getMembershipByUserId(projectId, userId) {
       FROM project_members
       WHERE project_id = $1
         AND user_id = $2
+        AND valid_from <= timezone('utc', now())
         AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
       LIMIT 1;
     `,
@@ -280,6 +279,46 @@ async function ensureRequesterIsMemberOrThrowForbidden(
       });
     }
     throw error;
+  }
+}
+
+async function ensureCanUpdateProject(projectId, requestingUser) {
+  await ensureRequesterIsMemberOrThrowForbidden(projectId, requestingUser);
+
+  const requesterMembership = await getMembershipByUserId(
+    projectId,
+    requestingUser.id,
+  );
+
+  if (!["owner", "admin"].includes(requesterMembership.role)) {
+    throw new ForbiddenError({
+      message: "Você não possui permissão para atualizar esse projeto.",
+      action:
+        "Apenas owner ou admin do projeto podem atualizar os dados do projeto.",
+    });
+  }
+}
+
+async function ensureAnotherActiveOwnerExists(projectId, excludedUserId) {
+  const results = await database.query({
+    text: `
+      SELECT id
+      FROM project_members
+      WHERE project_id = $1
+        AND user_id <> $2
+        AND role = 'owner'
+        AND valid_from <= timezone('utc', now())
+        AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
+      LIMIT 1;
+    `,
+    values: [projectId, excludedUserId],
+  });
+
+  if (results.rowCount === 0) {
+    throw new ValidationError({
+      message: "O projeto precisa ter ao menos um proprietário ativo.",
+      action: "Adicione outro proprietário antes de remover ou rebaixar este.",
+    });
   }
 }
 
@@ -343,6 +382,13 @@ async function updateMember(requestingUser, projectId, userId, patchValues) {
   }
   if ("role" in patchValues && patchValues.role === "owner") {
     ensureCanManageOwner(requesterMembership);
+  }
+  if (
+    targetMembership.role === "owner" &&
+    "role" in patchValues &&
+    patchValues.role !== "owner"
+  ) {
+    await ensureAnotherActiveOwnerExists(projectId, userId);
   }
 
   const fields = [];
@@ -423,6 +469,7 @@ async function removeMember(requestingUser, projectId, userId) {
   // Remover owner: só owner pode
   if (targetMembership.role === "owner") {
     ensureCanManageOwner(requesterMembership);
+    await ensureAnotherActiveOwnerExists(projectId, userId);
   }
 
   const results = await database.query({
@@ -455,6 +502,8 @@ const project = {
   update,
   findOneById,
   getMembership,
+  ensureRequesterIsMemberOrThrowForbidden,
+  ensureCanUpdateProject,
   validateUniqueName,
   addMember,
   validateUniqueMember,
