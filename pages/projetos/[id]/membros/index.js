@@ -27,7 +27,7 @@ export default function ProjectMembersPage() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [formValues, setFormValues] = useState({
-    user_id: "",
+    user_identifier: "",
     role: "member",
   });
   const [submitStatus, setSubmitStatus] = useState("idle");
@@ -107,7 +107,7 @@ export default function ProjectMembersPage() {
   }, [router.isReady, projectId]);
 
   function openAddMemberForm() {
-    setFormValues({ user_id: "", role: "member" });
+    setFormValues({ user_identifier: "", role: "member" });
     setSubmitErrorMessage(null);
     setSubmitStatus("idle");
     setIsAddingMember(true);
@@ -125,7 +125,6 @@ export default function ProjectMembersPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          project_id: projectId,
           ...formValues,
         }),
       });
@@ -277,22 +276,23 @@ export default function ProjectMembersPage() {
               <Stack gap="normal">
                 <Heading as="h3">Adicionar membro</Heading>
                 <FormControl>
-                  <FormControl.Label>ID do usuário</FormControl.Label>
+                  <FormControl.Label>UUID, e-mail ou CPF</FormControl.Label>
                   <TextInput
-                    value={formValues.user_id}
+                    value={formValues.user_identifier}
                     onChange={(event) =>
                       setFormValues((currentValues) => ({
                         ...currentValues,
-                        user_id: event.target.value.trim(),
+                        user_identifier: event.target.value,
                       }))
                     }
-                    placeholder="UUID da conta do usuário"
+                    placeholder="UUID, email@exemplo.com ou 000.000.000-00"
                     required
                     block
                     disabled={submitStatus === "loading"}
                   />
                   <FormControl.Caption>
-                    Informe o UUID do usuário que já possui uma conta.
+                    Informe um identificador associado à conta que deseja
+                    adicionar.
                   </FormControl.Caption>
                 </FormControl>
                 <FormControl>
