@@ -8,9 +8,10 @@ import {
   Stack,
   Text,
   TextInput,
+  useConfirm,
 } from "@primer/react";
 import { Blankslate, Card } from "@primer/react/experimental";
-import { PencilIcon, TrashIcon } from "@primer/octicons-react";
+import { PencilIcon, PlusIcon, TrashIcon } from "@primer/octicons-react";
 import { useRouter } from "next/router";
 import DefaultLayout from "../../../../interface/DefaultLayout";
 import createProjectNavigation from "../../../../interface/ProjectNavigation";
@@ -37,6 +38,7 @@ export default function ProjectMembersPage() {
   const [membershipActionStatus, setMembershipActionStatus] = useState("idle");
   const [membershipActionError, setMembershipActionError] = useState(null);
   const [membershipActionSuccess, setMembershipActionSuccess] = useState(null);
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (!router.isReady || typeof projectId !== "string") {
@@ -201,9 +203,13 @@ export default function ProjectMembersPage() {
   }
 
   async function handleRemoveMember(member) {
-    const confirmed = window.confirm(
-      `Tem certeza de que deseja remover ${member.user_id} do projeto?`,
-    );
+    const confirmed = await confirm({
+      title: `Remover ${member.member_name} do projeto?`,
+      content: "A pessoa perderá o acesso ao projeto.",
+      confirmButtonContent: "Remover membro",
+      confirmButtonType: "danger",
+      cancelButtonContent: "Cancelar",
+    });
     if (!confirmed) {
       return;
     }
@@ -260,6 +266,7 @@ export default function ProjectMembersPage() {
           {canManageMembers && (
             <Button
               variant="primary"
+              leadingVisual={PlusIcon}
               onClick={() =>
                 isAddingMember ? setIsAddingMember(false) : openAddMemberForm()
               }
@@ -276,7 +283,9 @@ export default function ProjectMembersPage() {
               <Stack gap="normal">
                 <Heading as="h3">Adicionar membro</Heading>
                 <FormControl>
-                  <FormControl.Label>UUID, e-mail ou CPF</FormControl.Label>
+                  <FormControl.Label>
+                    E-mail ou CPF do usuário
+                  </FormControl.Label>
                   <TextInput
                     value={formValues.user_identifier}
                     onChange={(event) =>
@@ -285,14 +294,14 @@ export default function ProjectMembersPage() {
                         user_identifier: event.target.value,
                       }))
                     }
-                    placeholder="UUID, email@exemplo.com ou 000.000.000-00"
+                    placeholder="email@exemplo.com ou 000.000.000-00"
                     required
                     block
                     disabled={submitStatus === "loading"}
                   />
                   <FormControl.Caption>
-                    Informe um identificador associado à conta que deseja
-                    adicionar.
+                    Informe o e-mail ou CPF da conta cadastrada. UUIDs também
+                    são aceitos.
                   </FormControl.Caption>
                 </FormControl>
                 <FormControl>
@@ -382,7 +391,7 @@ export default function ProjectMembersPage() {
           <Stack gap="normal">
             {members.map((member) => (
               <Card key={member.id}>
-                <Card.Heading>{member.user_id}</Card.Heading>
+                <Card.Heading>{member.member_name}</Card.Heading>
                 {editingMemberId === member.user_id ? (
                   <Stack gap="normal">
                     <FormControl>

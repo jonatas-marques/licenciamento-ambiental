@@ -50,13 +50,8 @@ async function patchHandler(request, response) {
   }
 
   await project.ensureCanUpdateProject(projectId, userTryingToPatch);
-  project.validateUpdateInput(userInputValues);
 
-  const updatedProject = await project.update(
-    projectId,
-    userInputValues,
-    userTryingToPatch.id,
-  );
+  const updatedProject = await project.update(projectId, userInputValues);
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPatch,

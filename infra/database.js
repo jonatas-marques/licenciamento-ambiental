@@ -1,20 +1,5 @@
 import { Client } from "pg";
-import {
-  ConflictError,
-  ForbiddenError,
-  NotFoundError,
-  ServiceError,
-  UnauthorizedError,
-  ValidationError,
-} from "./errors.js";
-
-const domainErrors = [
-  ConflictError,
-  ForbiddenError,
-  NotFoundError,
-  UnauthorizedError,
-  ValidationError,
-];
+import { ServiceError } from "./errors.js";
 
 async function query(queryObjetc) {
   let client;
@@ -57,10 +42,7 @@ async function transaction(callback) {
       }
     }
 
-    if (
-      error instanceof ServiceError ||
-      domainErrors.some((ErrorType) => error instanceof ErrorType)
-    ) {
+    if (error instanceof ServiceError) {
       throw error;
     }
 

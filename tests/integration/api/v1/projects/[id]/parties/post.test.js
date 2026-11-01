@@ -111,6 +111,7 @@ describe("POST /api/v1/projects/[id]/parties", () => {
         project_id: project.id,
         person_cp: natural.cpf,
         interest: "interessado",
+        person_name: natural.name,
       }),
     );
   });

@@ -1,5 +1,6 @@
 import orchestrator from "tests/orchestrator.js";
 import webserver from "infra/webserver.js";
+import person from "models/person.js";
 
 beforeAll(async () => {
   await orchestrator.waitForAllServices();
@@ -30,6 +31,12 @@ describe("POST /api/v1/projects/[id]/members", () => {
     const createdProject = await projectResponse.json();
 
     const createdUser = await orchestrator.createUser();
+    await person.createNaturalPerson({
+      name: "Pessoa adicionada ao projeto",
+      cpf: createdUser.cpf,
+      created_by: activatedOwner.id,
+      user_id: createdUser.id,
+    });
     const response = await fetch(
       `${webserver.origin}/api/v1/projects/${createdProject.id}/members`,
       {
@@ -51,6 +58,7 @@ describe("POST /api/v1/projects/[id]/members", () => {
         project_id: createdProject.id,
         user_id: createdUser.id,
         role: "member",
+        member_name: "Pessoa adicionada ao projeto",
       }),
     );
   });

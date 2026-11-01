@@ -9,6 +9,26 @@ import {
 
 const MANAGER_ROLES = ["owner", "admin"];
 
+function getPersonNameSelection(partyAlias) {
+  return `
+    COALESCE(
+      (
+        SELECT CASE WHEN COUNT(*) = 1 THEN MIN(natural_persons.name) END
+        FROM natural_persons
+        WHERE LENGTH(${partyAlias}.person_cp) = 11
+          AND natural_persons.cpf = ${partyAlias}.person_cp
+      ),
+      (
+        SELECT legal_persons.name
+        FROM legal_persons
+        WHERE LENGTH(${partyAlias}.person_cp) = 14
+          AND legal_persons.cnpj = ${partyAlias}.person_cp
+        LIMIT 1
+      )
+    ) AS person_name
+  `;
+}
+
 function sanitizePersonCp(value) {
   return String(value ?? "").replace(/\D/g, "");
 }
@@ -108,7 +128,7 @@ async function listParties(requestingUser, projectId) {
 
   const results = await database.query({
     text: `
-      SELECT *
+      SELECT parties.*, ${getPersonNameSelection("parties")}
       FROM parties
       WHERE project_id = $1
       ORDER BY interest ASC, person_cp ASC;
@@ -125,7 +145,7 @@ async function getParty(requestingUser, projectId, partyId) {
 
   const results = await database.query({
     text: `
-      SELECT *
+      SELECT parties.*, ${getPersonNameSelection("parties")}
       FROM parties
       WHERE project_id = $1
         AND id = $2
@@ -166,9 +186,14 @@ async function addParty(requestingUser, projectId, userInputValues) {
 
   const results = await database.query({
     text: `
-      INSERT INTO parties (project_id, person_cp, interest)
-      VALUES ($1, $2, $3)
-      RETURNING *;
+      WITH inserted_party AS (
+        INSERT INTO parties (project_id, person_cp, interest)
+        VALUES ($1, $2, $3)
+        RETURNING *
+      )
+      SELECT inserted_party.*,
+             ${getPersonNameSelection("inserted_party")}
+      FROM inserted_party;
     `,
     values: [projectId, sanitizedCp, interest],
   });
@@ -221,11 +246,16 @@ async function updateParty(requestingUser, projectId, partyId, patchValues) {
 
   const results = await database.query({
     text: `
-      UPDATE parties
-      SET ${fields.join(", ")}
-      WHERE project_id = $1
-        AND id = $2
-      RETURNING *;
+      WITH updated_party AS (
+        UPDATE parties
+        SET ${fields.join(", ")}
+        WHERE project_id = $1
+          AND id = $2
+        RETURNING *
+      )
+      SELECT updated_party.*,
+             ${getPersonNameSelection("updated_party")}
+      FROM updated_party;
     `,
     values,
   });
