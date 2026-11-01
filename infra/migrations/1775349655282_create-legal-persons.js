@@ -8,6 +8,7 @@ exports.up = (pgm) => {
     cnpj: {
       type: "varchar(14)",
       notNull: true,
+      unique: true,
     },
     name: {
       type: "varchar(254)",
