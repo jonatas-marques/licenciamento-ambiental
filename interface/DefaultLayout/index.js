@@ -6,13 +6,16 @@ import {
   Text,
   ActionMenu,
   ActionList,
-  UnderlineNav,
+  IconButton,
+  NavList,
 } from "@primer/react";
 
 import {
   OrganizationIcon,
   PersonIcon,
   RepoIcon,
+  SidebarCollapseIcon,
+  SidebarExpandIcon,
   SignOutIcon,
 } from "@primer/octicons-react";
 import Link from "next/link";
@@ -30,12 +33,21 @@ export default function DefaultLayout({
 }) {
   const [user, setUser] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const extraContentClassName = contentWidthClasses[contentWidth];
 
   useEffect(() => {
     loadCurrentUser();
+    setIsSidebarOpen(localStorage.getItem("sidebarOpen") !== "false");
   }, []);
+
+  function toggleSidebar() {
+    setIsSidebarOpen((currentValue) => {
+      localStorage.setItem("sidebarOpen", String(!currentValue));
+      return !currentValue;
+    });
+  }
   async function loadCurrentUser() {
     try {
       const response = await fetch("/api/v1/user");
@@ -127,23 +139,73 @@ export default function DefaultLayout({
       </Header>
 
       <PageLayout>
+        {subNavigation?.items?.length > 0 && isSidebarOpen && (
+          <PageLayout.Pane position="start" sticky aria-label="Menu lateral">
+            <NavList aria-label={subNavigation.ariaLabel}>
+              {subNavigation.items.map((item) =>
+                item.children ? (
+                  <NavList.Item
+                    key={item.href}
+                    as={Link}
+                    href={item.href}
+                    aria-current={item.current ? "page" : undefined}
+                    defaultOpen
+                  >
+                    {item.icon && (
+                      <NavList.LeadingVisual>
+                        <item.icon />
+                      </NavList.LeadingVisual>
+                    )}
+                    {item.label}
+                    <NavList.SubNav>
+                      {item.children.map((child) => (
+                        <NavList.Item
+                          key={child.href}
+                          as={Link}
+                          href={child.href}
+                          aria-current={child.current ? "page" : undefined}
+                        >
+                          {child.icon && (
+                            <NavList.LeadingVisual>
+                              <child.icon />
+                            </NavList.LeadingVisual>
+                          )}
+                          {child.label}
+                        </NavList.Item>
+                      ))}
+                    </NavList.SubNav>
+                  </NavList.Item>
+                ) : (
+                  <NavList.Item
+                    key={item.href}
+                    as={Link}
+                    href={item.href}
+                    aria-current={item.current ? "page" : undefined}
+                  >
+                    {item.icon && (
+                      <NavList.LeadingVisual>
+                        <item.icon />
+                      </NavList.LeadingVisual>
+                    )}
+                    {item.label}
+                  </NavList.Item>
+                ),
+              )}
+            </NavList>
+          </PageLayout.Pane>
+        )}
         <PageLayout.Content
           width={contentWidth}
           className={extraContentClassName}
         >
           {subNavigation?.items?.length > 0 && (
-            <UnderlineNav aria-label={subNavigation.ariaLabel} variant="flush">
-              {subNavigation.items.map((item) => (
-                <UnderlineNav.Item
-                  key={item.href}
-                  as={Link}
-                  href={item.href}
-                  aria-current={item.current ? "page" : undefined}
-                >
-                  {item.label}
-                </UnderlineNav.Item>
-              ))}
-            </UnderlineNav>
+            <IconButton
+              icon={isSidebarOpen ? SidebarCollapseIcon : SidebarExpandIcon}
+              aria-label={isSidebarOpen ? "Recolher menu" : "Expandir menu"}
+              aria-expanded={isSidebarOpen}
+              variant="invisible"
+              onClick={toggleSidebar}
+            />
           )}
           {children}
         </PageLayout.Content>

@@ -1,29 +1,31 @@
 import { useEffect, useState } from "react";
-import {
-  Banner,
-  Button,
-  Heading,
-  Stack,
-  Text,
-  useConfirm,
-} from "@primer/react";
-import { Blankslate, Card } from "@primer/react/experimental";
+import { Banner, Button, Heading, Stack, Text } from "@primer/react";
 import Link from "next/link";
+import { Blankslate } from "@primer/react/experimental";
 import { useRouter } from "next/router";
 import DefaultLayout from "../../../../interface/DefaultLayout";
 import createProjectNavigation from "../../../../interface/ProjectNavigation";
 
-export default function ProjectMcesPage() {
+async function fetchJson(url) {
+  const response = await fetch(url);
+  const body = await response.json();
+  return { response, body };
+}
+
+function toMessage(body) {
+  return `${body.message} ${body.action}`.trim();
+}
+
+export default function ProjectMcePage() {
   const router = useRouter();
   const projectId = router.query.id;
   const [projectName, setProjectName] = useState("");
-  const [versions, setVersions] = useState([]);
-  const [canManage, setCanManage] = useState(false);
+  const [mce, setMce] = useState(null);
+  const [canEdit, setCanEdit] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState("loading");
-  const [actionStatus, setActionStatus] = useState("idle");
   const [errorMessage, setErrorMessage] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
-  const confirm = useConfirm();
+  const [actionError, setActionError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!router.isReady || typeof projectId !== "string") {
@@ -31,195 +33,90 @@ export default function ProjectMcesPage() {
     }
 
     let isCurrentRequest = true;
+    const baseUrl = `/api/v1/projects/${projectId}`;
 
-    async function loadMces() {
+    async function load() {
       try {
-        const [projectResponse, mcesResponse, membersResponse, userResponse] =
-          await Promise.all([
-            fetch(`/api/v1/projects/${projectId}`),
-            fetch(`/api/v1/projects/${projectId}/mces`),
-            fetch(`/api/v1/projects/${projectId}/members`),
-            fetch("/api/v1/user"),
-          ]);
-        const [projectBody, mcesBody, membersBody, userBody] =
-          await Promise.all([
-            projectResponse.json(),
-            mcesResponse.json(),
-            membersResponse.json(),
-            userResponse.json(),
-          ]);
+        const [project, members, user, mceResult] = await Promise.all([
+          fetchJson(baseUrl),
+          fetchJson(`${baseUrl}/members`),
+          fetchJson("/api/v1/user"),
+          fetchJson(`${baseUrl}/mce`),
+        ]);
 
-        if (!projectResponse.ok) {
-          throw new Error(
-            `${projectBody.message} ${projectBody.action}`.trim(),
-          );
+        for (const { response, body } of [project, members, user]) {
+          if (!response.ok) {
+            throw new Error(toMessage(body));
+          }
         }
-        if (!mcesResponse.ok) {
-          throw new Error(`${mcesBody.message} ${mcesBody.action}`.trim());
-        }
-        if (!membersResponse.ok) {
-          throw new Error(
-            `${membersBody.message} ${membersBody.action}`.trim(),
-          );
-        }
-        if (!userResponse.ok) {
-          throw new Error(`${userBody.message} ${userBody.action}`.trim());
-        }
-        if (!Array.isArray(mcesBody) || !Array.isArray(membersBody)) {
-          throw new Error("A resposta da API possui um formato inválido.");
+
+        let loadedMce = null;
+
+        if (mceResult.response.ok) {
+          loadedMce = mceResult.body;
+        } else if (mceResult.response.status !== 404) {
+          throw new Error(toMessage(mceResult.body));
         }
 
         if (isCurrentRequest) {
-          const currentMembership = membersBody.find(
-            (member) => member.user_id === userBody.id,
+          const membership = members.body.find(
+            (member) => member.user_id === user.body.id,
           );
-          setProjectName(projectBody.name);
-          setVersions(mcesBody);
-          setCanManage(["owner", "admin"].includes(currentMembership?.role));
+          setProjectName(project.body.name);
+          setCanEdit(["owner", "admin", "member"].includes(membership?.role));
+          setMce(loadedMce);
           setLoadingStatus("success");
         }
       } catch (error) {
         if (isCurrentRequest) {
-          setErrorMessage(
-            error.message || "Não foi possível carregar as versões do MCE.",
-          );
+          setErrorMessage(error.message || "Não foi possível carregar o MCE.");
           setLoadingStatus("failure");
         }
       }
     }
 
-    loadMces();
+    load();
 
     return () => {
       isCurrentRequest = false;
     };
   }, [router.isReady, projectId]);
 
-  async function handleCreateDraft() {
-    setActionStatus("loading");
-    setErrorMessage(null);
-    setSuccessMessage(null);
+  async function saveMce(method, body) {
+    setIsSaving(true);
+    setActionError(null);
 
     try {
-      const response = await fetch(`/api/v1/projects/${projectId}/mces`, {
-        method: "POST",
+      const response = await fetch(`/api/v1/projects/${projectId}/mce`, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: body ? JSON.stringify(body) : undefined,
       });
       const responseBody = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          `${responseBody.message} ${responseBody.action}`.trim(),
-        );
+        throw new Error(toMessage(responseBody));
       }
 
-      await router.push(`/projetos/${projectId}/mce/${responseBody.id}`);
+      setMce(responseBody);
     } catch (error) {
-      setErrorMessage(error.message || "Não foi possível criar o rascunho.");
-      setActionStatus("failure");
+      setActionError(error.message || "Não foi possível salvar o MCE.");
+    } finally {
+      setIsSaving(false);
     }
   }
-
-  async function handleArchive(version) {
-    const confirmed = await confirm({
-      title: `Arquivar o rascunho da versão ${version.version}?`,
-      content:
-        "O histórico desta versão será preservado. Depois disso, será possível criar uma nova versão.",
-      confirmButtonContent: "Arquivar rascunho",
-      confirmButtonType: "danger",
-      cancelButtonContent: "Cancelar",
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    setActionStatus("loading");
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    try {
-      const response = await fetch(
-        `/api/v1/projects/${projectId}/mces/${version.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "archived" }),
-        },
-      );
-      const responseBody = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          `${responseBody.message} ${responseBody.action}`.trim(),
-        );
-      }
-
-      setVersions((currentVersions) =>
-        currentVersions.map((currentVersion) =>
-          currentVersion.id === responseBody.id ? responseBody : currentVersion,
-        ),
-      );
-      setSuccessMessage(
-        `O rascunho da versão ${version.version} foi arquivado.`,
-      );
-      setActionStatus("success");
-    } catch (error) {
-      setErrorMessage(error.message || "Não foi possível arquivar o rascunho.");
-      setActionStatus("failure");
-    }
-  }
-
-  const hasDraft = versions.some((version) => version.status === "draft");
 
   return (
     <DefaultLayout
       subNavigation={createProjectNavigation(projectId, "mce")}
       metadata={{
         title: "MCE",
-        description: "Versões do Memorial de Caracterização do Empreendimento",
+        description: "Memorial de Caracterização do Empreendimento",
       }}
     >
       <Stack gap="spacious">
         {projectName && <Heading as="h1">{projectName}</Heading>}
-        <div>
-          <Heading as="h2">
-            Memorial de Caracterização do Empreendimento
-          </Heading>
-          <Text>Gerencie as versões do MCE deste projeto.</Text>
-        </div>
-
-        {canManage && (
-          <Button
-            variant="primary"
-            onClick={handleCreateDraft}
-            disabled={actionStatus === "loading" || hasDraft}
-          >
-            {actionStatus === "loading" ? "Criando..." : "Criar rascunho"}
-          </Button>
-        )}
-
-        {hasDraft && (
-          <Banner
-            title="Já existe um rascunho"
-            description="Para iniciar outra versão, arquive o rascunho atual. O histórico será mantido."
-          />
-        )}
-
-        {errorMessage && loadingStatus !== "failure" && (
-          <Banner
-            variant="critical"
-            title="Não foi possível concluir a ação"
-            description={errorMessage}
-          />
-        )}
-        {successMessage && (
-          <Banner title="Ação realizada" description={successMessage} />
-        )}
-        {loadingStatus === "loading" && (
-          <Text>Carregando versões do MCE...</Text>
-        )}
+        {loadingStatus === "loading" && <Text>Carregando MCE...</Text>}
         {loadingStatus === "failure" && (
           <Banner
             variant="critical"
@@ -227,68 +124,77 @@ export default function ProjectMcesPage() {
             description={errorMessage}
           />
         )}
+        {actionError && (
+          <Banner
+            variant="critical"
+            title="Não foi possível concluir a alteração"
+            description={actionError}
+          />
+        )}
 
-        {loadingStatus === "success" && versions.length === 0 && (
+        {loadingStatus === "success" && !mce && (
           <Blankslate border>
-            <Blankslate.Heading>Nenhuma versão de MCE</Blankslate.Heading>
+            <Blankslate.Heading>
+              Este projeto ainda não possui MCE
+            </Blankslate.Heading>
             <Blankslate.Description>
-              Crie um rascunho para iniciar o histórico de versões deste
-              projeto.
+              Crie o Memorial de Caracterização do Empreendimento para cadastrar
+              fluxogramas e equipamentos.
             </Blankslate.Description>
-            {canManage && (
+            {canEdit && (
               <Blankslate.PrimaryAction
-                onClick={handleCreateDraft}
-                disabled={actionStatus === "loading"}
+                onClick={() => saveMce("POST")}
+                disabled={isSaving}
               >
-                Criar rascunho
+                Criar MCE
               </Blankslate.PrimaryAction>
             )}
           </Blankslate>
         )}
 
-        {loadingStatus === "success" && versions.length > 0 && (
-          <Stack gap="normal">
-            {versions.map((version) => (
-              <Card key={version.id}>
-                <Card.Heading>Versão {version.version}</Card.Heading>
-                <Card.Description>
-                  Status:{" "}
-                  {version.status === "draft" ? "Rascunho" : "Arquivado"}
-                </Card.Description>
-                <Card.Description>
-                  Criada em {formatDate(version.created_at)}
-                </Card.Description>
-                <Card.Action>
-                  <Button
-                    as={Link}
-                    size="small"
-                    href={`/projetos/${projectId}/mce/${version.id}`}
-                  >
-                    Abrir versão
-                  </Button>
-                  {canManage && version.status === "draft" && (
-                    <Button
-                      size="small"
-                      variant="danger"
-                      onClick={() => handleArchive(version)}
-                      disabled={actionStatus === "loading"}
-                    >
-                      Arquivar rascunho
-                    </Button>
-                  )}
-                </Card.Action>
-              </Card>
-            ))}
-          </Stack>
+        {loadingStatus === "success" && mce && (
+          <>
+            <div className="project-section-heading">
+              <div>
+                <Heading as="h2">Memorial de Caracterização</Heading>
+                <Text>
+                  Situação:{" "}
+                  {mce.status === "completed" ? "Concluído" : "Rascunho"}
+                </Text>
+              </div>
+              {canEdit && (
+                <Button
+                  onClick={() =>
+                    saveMce("PATCH", {
+                      status:
+                        mce.status === "completed" ? "draft" : "completed",
+                    })
+                  }
+                  disabled={isSaving}
+                >
+                  {mce.status === "completed"
+                    ? "Reabrir como rascunho"
+                    : "Marcar como concluído"}
+                </Button>
+              )}
+            </div>
+            <Stack gap="condensed">
+              <Text>
+                <Link href={`/projetos/${projectId}/mce/fluxogramas`}>
+                  Fluxogramas
+                </Link>
+                : processos produtivos do empreendimento.
+              </Text>
+              <Text>
+                <Link href={`/projetos/${projectId}/mce/equipamentos`}>
+                  Equipamentos
+                </Link>
+                : equipamentos utilizados pelo empreendimento.
+              </Text>
+            </Stack>
+          </>
         )}
       </Stack>
     </DefaultLayout>
   );
-}
-
-function formatDate(value) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }
