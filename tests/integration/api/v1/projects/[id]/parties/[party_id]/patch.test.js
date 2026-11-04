@@ -48,7 +48,7 @@ describe("PATCH /api/v1/projects/[id]/parties/[party_id]", () => {
 
     const createdNatural = await orchestrator.createNaturalPerson();
     const created = await party.addParty(activatedOwner, project.id, {
-      person_cp: createdNatural.cpf,
+      person_id: createdNatural.id,
       interest: "interessado",
     });
 
@@ -72,7 +72,7 @@ describe("PATCH /api/v1/projects/[id]/parties/[party_id]", () => {
       message:
         "Você não possui permissão para gerenciar partes interessadas do projeto.",
       action:
-        "Apenas usuários com role 'owner' ou 'admin' podem gerenciar partes interessadas.",
+        "Apenas owner, admin, responsável legal ou consultoria ambiental do projeto podem gerenciar partes interessadas.",
       status_code: 403,
     });
   });
@@ -94,7 +94,7 @@ describe("PATCH /api/v1/projects/[id]/parties/[party_id]", () => {
 
     const createdNatural = await orchestrator.createNaturalPerson();
     const created = await party.addParty(activatedOwner, project.id, {
-      person_cp: createdNatural.cpf,
+      person_id: createdNatural.id,
       interest: "interessado",
     });
 
@@ -117,7 +117,7 @@ describe("PATCH /api/v1/projects/[id]/parties/[party_id]", () => {
       expect.objectContaining({
         id: created.id,
         project_id: project.id,
-        person_cp: createdNatural.cpf,
+        person_id: createdNatural.id,
         interest: "consultor",
       }),
     );

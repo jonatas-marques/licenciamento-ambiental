@@ -49,8 +49,8 @@ describe("GET /api/v1/projects/[id]/parties", () => {
       const responseBody = await response.json();
       expect(responseBody).toEqual({
         name: "ForbiddenError",
-        message: "Você não é membro deste projeto.",
-        action: "Solicite acesso ao proprietário do projeto.",
+        message: "Você não é membro nem parte interessada deste projeto.",
+        action: "Solicite acesso ao responsável pelo projeto.",
         status_code: 403,
       });
     });
@@ -66,7 +66,7 @@ describe("GET /api/v1/projects/[id]/parties", () => {
 
       const natural = await orchestrator.createNaturalPerson();
       await party.addParty(activatedOwner, project.id, {
-        person_cp: natural.cpf,
+        person_id: natural.id,
         interest: "interessado",
       });
 
@@ -83,7 +83,7 @@ describe("GET /api/v1/projects/[id]/parties", () => {
         expect.arrayContaining([
           expect.objectContaining({
             project_id: project.id,
-            person_cp: natural.cpf,
+            person_id: natural.id,
             interest: "interessado",
             person_name: natural.name,
           }),
