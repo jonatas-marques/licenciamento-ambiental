@@ -4,6 +4,7 @@ import {
   Button,
   FormControl,
   Heading,
+  IconButton,
   Stack,
   Text,
   TextInput,
@@ -25,12 +26,16 @@ export default function MceItemSection({
   fields,
   renderFormFields,
   columns,
+  groupBy,
   items,
+  extras = {},
   onItemsChange,
   canEdit,
 }) {
   const confirm = useConfirm();
-  const emptyForm = Object.fromEntries(fields.map((field) => [field.name, ""]));
+  const emptyForm = Object.fromEntries(
+    fields.map((field) => [field.name, field.empty ?? ""]),
+  );
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formValues, setFormValues] = useState(emptyForm);
@@ -40,7 +45,10 @@ export default function MceItemSection({
 
   function toForm(item) {
     return Object.fromEntries(
-      fields.map((field) => [field.name, item[field.name] ?? ""]),
+      fields.map((field) => [
+        field.name,
+        item[field.name] ?? field.empty ?? "",
+      ]),
     );
   }
 
@@ -109,11 +117,16 @@ export default function MceItemSection({
     }
   }
 
-  function openForm(item) {
+  function openForm(item, presetValues) {
     setEditingId(item?.id ?? null);
-    setFormValues(item ? toForm(item) : emptyForm);
+    setFormValues(
+      item ? toForm(item) : { ...emptyForm, ...(presetValues ?? {}) },
+    );
     setErrorMessage(null);
     setIsAdding(true);
+    if (presetValues) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }
 
   function closeForm() {
@@ -123,6 +136,74 @@ export default function MceItemSection({
   }
 
   const isLoading = status === "loading";
+
+  function renderTable(rows, labelId, withAddRow) {
+    return (
+      <Table.Container>
+        <DataTable
+          aria-labelledby={labelId}
+          data={withAddRow && canEdit ? [...rows, { id: ADD_ROW_ID }] : rows}
+          columns={[
+            ...columns.map((column, index) => ({
+              header: column.label,
+              field: column.name,
+              rowHeader: column.name === "name",
+              renderCell: (item) => {
+                if (item.id === ADD_ROW_ID) {
+                  return index === 0 ? (
+                    <Button
+                      type="button"
+                      size="small"
+                      variant="invisible"
+                      leadingVisual={PlusIcon}
+                      onClick={() => openForm()}
+                      disabled={isLoading}
+                      aria-label={`Adicionar ${singular}`}
+                    >
+                      Adicionar {singular}
+                    </Button>
+                  ) : null;
+                }
+                return column.render
+                  ? column.render(item, extras)
+                  : (item[column.name] ?? "—");
+              },
+            })),
+            ...(canEdit
+              ? [
+                  {
+                    id: "actions",
+                    header: "Ações",
+                    renderCell: (item) =>
+                      item.id === ADD_ROW_ID ? null : (
+                        <>
+                          <IconButton
+                            type="button"
+                            size="small"
+                            icon={PencilIcon}
+                            aria-label={`Alterar ${item.name}`}
+                            onClick={() => openForm(item)}
+                            disabled={isLoading}
+                          />{" "}
+                          <IconButton
+                            type="button"
+                            size="small"
+                            variant="danger"
+                            icon={TrashIcon}
+                            aria-label={`Remover ${item.name}`}
+                            onClick={() => handleRemove(item)}
+                            disabled={isLoading}
+                          />
+                        </>
+                      ),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </Table.Container>
+    );
+  }
 
   return (
     <Stack gap="normal">
@@ -196,71 +277,36 @@ export default function MceItemSection({
         </Blankslate>
       )}
 
-      {columns && items.length > 0 && (
-        <Table.Container>
-          <DataTable
-            aria-labelledby={`${collection}-title`}
-            data={canEdit ? [...items, { id: ADD_ROW_ID }] : items}
-            columns={[
-              ...columns.map((column, index) => ({
-                header: column.label,
-                field: column.name,
-                rowHeader: column.name === "name",
-                renderCell: (item) => {
-                  if (item.id === ADD_ROW_ID) {
-                    return index === 0 ? (
-                      <Button
-                        type="button"
-                        size="small"
-                        variant="invisible"
-                        leadingVisual={PlusIcon}
-                        onClick={() => openForm()}
-                        disabled={isLoading}
-                        aria-label={`Adicionar ${singular}`}
-                      >
-                        Adicionar {singular}
-                      </Button>
-                    ) : null;
-                  }
-                  return item[column.name] ?? "—";
-                },
-              })),
-              ...(canEdit
-                ? [
-                    {
-                      id: "actions",
-                      header: "Ações",
-                      renderCell: (item) =>
-                        item.id === ADD_ROW_ID ? null : (
-                          <>
-                            <Button
-                              type="button"
-                              size="small"
-                              leadingVisual={PencilIcon}
-                              onClick={() => openForm(item)}
-                              disabled={isLoading}
-                            >
-                              Alterar
-                            </Button>{" "}
-                            <Button
-                              type="button"
-                              size="small"
-                              variant="danger"
-                              leadingVisual={TrashIcon}
-                              onClick={() => handleRemove(item)}
-                              disabled={isLoading}
-                            >
-                              Remover
-                            </Button>
-                          </>
-                        ),
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        </Table.Container>
-      )}
+      {columns &&
+        items.length > 0 &&
+        (groupBy
+          ? groupBy.groups(items).map((group) => (
+              <Stack key={group.key} gap="condensed">
+                <Heading
+                  as="h3"
+                  id={`${collection}-${group.key}`}
+                  variant="medium"
+                >
+                  {group.label} ({group.items.length})
+                </Heading>
+                {renderTable(group.items, `${collection}-${group.key}`, false)}
+                {canEdit && group.presetValues && (
+                  <div>
+                    <Button
+                      type="button"
+                      size="small"
+                      variant="invisible"
+                      leadingVisual={PlusIcon}
+                      onClick={() => openForm(null, group.presetValues)}
+                      disabled={isLoading}
+                    >
+                      Adicionar {singular} em {group.label}
+                    </Button>
+                  </div>
+                )}
+              </Stack>
+            ))
+          : renderTable(items, `${collection}-title`, true))}
 
       {!columns &&
         items.map((item) => (

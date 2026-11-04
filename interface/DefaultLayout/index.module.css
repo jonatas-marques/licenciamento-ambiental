@@ -2,3 +2,13 @@
   max-width: 20rem;
   margin-inline: auto;
 }
+
+.sidebarActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--base-size-8);
+}
+
+.collapsedSidebarActions {
+  justify-content: center;
+}

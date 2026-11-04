@@ -23,7 +23,7 @@ exports.up = (pgm) => {
     // Modelo do catálogo usado como ponto de partida (os dados são copiados).
     model_id: {
       type: "uuid",
-      references: "equipment_models",
+      references: "equipment_catalog",
       onDelete: "restrict",
     },
     brand: {

@@ -2,7 +2,7 @@ exports.up = (pgm) => {
   // Catálogo de equipamentos padrão (marca/modelo), gerido por usuários
   // especiais. Ao escolher um modelo, os dados são copiados para o equipamento
   // do MCE, que continua editável.
-  pgm.createTable("equipment_models", {
+  pgm.createTable("equipment_catalog", {
     id: {
       type: "uuid",
       primaryKey: true,
@@ -38,15 +38,15 @@ exports.up = (pgm) => {
     },
   });
 
-  pgm.createIndex("equipment_models", ["lower(brand)", "lower(model)"], {
-    name: "equipment_models_brand_model_unique",
+  pgm.createIndex("equipment_catalog", ["lower(brand)", "lower(model)"], {
+    name: "equipment_catalog_brand_model_unique",
     unique: true,
   });
-  pgm.createIndex("equipment_models", "name_id");
+  pgm.createIndex("equipment_catalog", "name_id");
 
   // Dados fictícios de exemplo; devem ser substituídos pelo catálogo real.
   pgm.sql(`
-    INSERT INTO equipment_models (name_id, brand, model, power, capacity, mobility)
+    INSERT INTO equipment_catalog (name_id, brand, model, power, capacity, mobility)
     SELECT equipments_names.id, seed.brand, seed.model, seed.power, seed.capacity, seed.mobility
     FROM (VALUES
       ('Compressor de ar', 'Mecalor', '250TR', 15, 250, 'fixo'),

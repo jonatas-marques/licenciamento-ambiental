@@ -1,6 +1,7 @@
 import {
   FileIcon,
   GearIcon,
+  PackageIcon,
   PeopleIcon,
   RepoIcon,
   ToolsIcon,
@@ -38,6 +39,12 @@ export default function createProjectNavigation(projectId, currentSection) {
           label: "Equipamentos",
           icon: ToolsIcon,
           href: `${projectPath}/mce/equipamentos`,
+        },
+        {
+          id: "items",
+          label: "Itens",
+          icon: PackageIcon,
+          href: `${projectPath}/mce/itens`,
         },
       ],
     },

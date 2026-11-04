@@ -247,6 +247,194 @@ describe("MCE API", () => {
     expect(badName.status).toBe(400);
   });
 
+  test("Manages operations, flows, items and flow items of a flowchart", async () => {
+    const { headers, url } = await setup();
+    await fetch(url, { method: "POST", headers });
+
+    async function post(collection, body) {
+      return await fetch(`${url}/${collection}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+    }
+
+    const flowchart = await (await post("flowcharts", { name: "A" })).json();
+    const other = await (await post("flowcharts", { name: "B" })).json();
+
+    const first = await post("operations", {
+      flowchart_id: flowchart.id,
+      name: "Corte",
+      boundary: "internal",
+    });
+    expect(first.status).toBe(201);
+    const source = await first.json();
+    const target = await (
+      await post("operations", { flowchart_id: flowchart.id, name: "Pintura" })
+    ).json();
+    const foreign = await (
+      await post("operations", { flowchart_id: other.id, name: "Outra" })
+    ).json();
+    expect(target.boundary).toBe("internal");
+
+    const badBoundary = await post("operations", {
+      flowchart_id: flowchart.id,
+      name: "X",
+      boundary: "middle",
+    });
+    expect(badBoundary.status).toBe(400);
+
+    const crossFlow = await post("flows", {
+      flowchart_id: flowchart.id,
+      source_operation_id: source.id,
+      target_operation_id: foreign.id,
+    });
+    expect(crossFlow.status).toBe(400);
+
+    const flowResponse = await post("flows", {
+      flowchart_id: flowchart.id,
+      source_operation_id: source.id,
+      target_operation_id: target.id,
+      label: "Peças cortadas",
+    });
+    expect(flowResponse.status).toBe(201);
+    const flow = await flowResponse.json();
+
+    const item = await (
+      await post("items", { name: "Chapa de aço", category: "insumo" })
+    ).json();
+    const flowItem = await post("flow_items", {
+      flow_id: flow.id,
+      item_id: item.id,
+      quantity: 10,
+      unit: "kg",
+    });
+    expect(flowItem.status).toBe(201);
+
+    const badUnit = await post("flow_items", {
+      flow_id: flow.id,
+      item_id: item.id,
+      quantity: 1,
+      unit: "toneladas",
+    });
+    expect(badUnit.status).toBe(400);
+
+    const move = await fetch(`${url}/flows/${flow.id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ flowchart_id: other.id }),
+    });
+    expect(move.status).toBe(400);
+
+    const bendResponse = await fetch(`${url}/flows/${flow.id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ bend_ratio: 0.3 }),
+    });
+    expect(bendResponse.status).toBe(200);
+    expect(Number((await bendResponse.json()).bend_ratio)).toBe(0.3);
+
+    const badBend = await fetch(`${url}/flows/${flow.id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ bend_ratio: 1.5 }),
+    });
+    expect(badBend.status).toBe(400);
+
+    const removed = await fetch(`${url}/operations/${source.id}`, {
+      method: "DELETE",
+      headers,
+    });
+    expect(removed.status).toBe(200);
+    const flows = await (await fetch(`${url}/flows`, { headers })).json();
+    expect(flows).toHaveLength(0);
+  });
+
+  test("Stores the boundary area, operation categories and item subtypes", async () => {
+    const { headers, url } = await setup();
+    await fetch(url, { method: "POST", headers });
+
+    async function send(path, method, body) {
+      return await fetch(`${url}/${path}`, {
+        method,
+        headers,
+        body: JSON.stringify(body),
+      });
+    }
+
+    const flowchart = await (
+      await send("flowcharts", "POST", { name: "A" })
+    ).json();
+    expect(Number(flowchart.boundary_width)).toBe(400);
+
+    const resized = await send(`flowcharts/${flowchart.id}`, "PATCH", {
+      boundary_width: 800,
+      boundary_height: 400,
+    });
+    expect(Number((await resized.json()).boundary_width)).toBe(800);
+
+    const source = await send("operations", "POST", {
+      flowchart_id: flowchart.id,
+      name: "Captação",
+      boundary: "external",
+      category: "fonte",
+    });
+    expect(source.status).toBe(201);
+    expect((await source.json()).category).toBe("fonte");
+
+    const badCategory = await send("operations", "POST", {
+      flowchart_id: flowchart.id,
+      name: "X",
+      category: "decisao",
+    });
+    expect(badCategory.status).toBe(400);
+
+    const created = await send("items", "POST", {
+      name: "Borra",
+      category: "residuo",
+      details: { hazard_class: "I", ibama_code: "130208" },
+    });
+    expect(created.status).toBe(201);
+    const waste = await created.json();
+    expect(waste.details).toEqual({
+      hazard_class: "I",
+      abnt_class: null,
+      ibama_code: "130208",
+      final_destination: null,
+      notes: null,
+    });
+
+    const onlyDetails = await send(`items/${waste.id}`, "PATCH", {
+      details: { final_destination: "Coprocessamento" },
+    });
+    expect((await onlyDetails.json()).details.final_destination).toBe(
+      "Coprocessamento",
+    );
+
+    const changed = await send(`items/${waste.id}`, "PATCH", {
+      category: "efluente",
+      details: { treated: true },
+    });
+    const effluent = await changed.json();
+    expect(effluent.details).toEqual({
+      type: null,
+      treated: true,
+      final_destination: null,
+    });
+
+    const plain = await send(`items/${waste.id}`, "PATCH", {
+      category: "insumo",
+    });
+    expect((await plain.json()).details).toBeNull();
+
+    const badDetails = await send("items", "POST", {
+      name: "Y",
+      category: "emissao",
+      details: { emission_factor: "abc" },
+    });
+    expect(badDetails.status).toBe(400);
+  });
+
   test("Unknown collection returns 404", async () => {
     const { headers, url } = await setup();
     await fetch(url, { method: "POST", headers });

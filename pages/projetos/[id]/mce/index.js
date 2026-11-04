@@ -110,8 +110,9 @@ export default function ProjectMcePage() {
     <DefaultLayout
       subNavigation={createProjectNavigation(projectId, "mce")}
       metadata={{
-        title: "MCE",
-        description: "Memorial de Caracterização do Empreendimento",
+        title: "MCE - Memorial de Caracterização do Empreendimento",
+        description:
+          "Gerenciar o MCE - Memorial de Caracterização do Empreendimento",
       }}
     >
       <Stack gap="spacious">

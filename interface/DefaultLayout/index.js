@@ -138,9 +138,33 @@ export default function DefaultLayout({
         )}
       </Header>
 
-      <PageLayout>
-        {subNavigation?.items?.length > 0 && isSidebarOpen && (
-          <PageLayout.Pane position="start" sticky aria-label="Menu lateral">
+      <PageLayout
+        containerWidth={subNavigation?.items?.length ? "full" : undefined}
+      >
+        {subNavigation?.items?.length > 0 && (
+          <PageLayout.Pane
+            position="start"
+            sticky
+            aria-label="Menu lateral"
+            width={
+              isSidebarOpen
+                ? undefined
+                : { min: "5rem", default: "5rem", max: "5rem" }
+            }
+          >
+            <div
+              className={`${styles.sidebarActions} ${
+                isSidebarOpen ? "" : styles.collapsedSidebarActions
+              }`}
+            >
+              <IconButton
+                icon={isSidebarOpen ? SidebarCollapseIcon : SidebarExpandIcon}
+                aria-label={isSidebarOpen ? "Recolher menu" : "Expandir menu"}
+                aria-expanded={isSidebarOpen}
+                variant="invisible"
+                onClick={toggleSidebar}
+              />
+            </div>
             <NavList aria-label={subNavigation.ariaLabel}>
               {subNavigation.items.map((item) =>
                 item.children ? (
@@ -149,6 +173,8 @@ export default function DefaultLayout({
                     as={Link}
                     href={item.href}
                     aria-current={item.current ? "page" : undefined}
+                    aria-label={item.label}
+                    title={item.label}
                     defaultOpen
                   >
                     {item.icon && (
@@ -156,7 +182,7 @@ export default function DefaultLayout({
                         <item.icon />
                       </NavList.LeadingVisual>
                     )}
-                    {item.label}
+                    {isSidebarOpen && item.label}
                     <NavList.SubNav>
                       {item.children.map((child) => (
                         <NavList.Item
@@ -164,13 +190,15 @@ export default function DefaultLayout({
                           as={Link}
                           href={child.href}
                           aria-current={child.current ? "page" : undefined}
+                          aria-label={child.label}
+                          title={child.label}
                         >
                           {child.icon && (
                             <NavList.LeadingVisual>
                               <child.icon />
                             </NavList.LeadingVisual>
                           )}
-                          {child.label}
+                          {isSidebarOpen && child.label}
                         </NavList.Item>
                       ))}
                     </NavList.SubNav>
@@ -181,13 +209,15 @@ export default function DefaultLayout({
                     as={Link}
                     href={item.href}
                     aria-current={item.current ? "page" : undefined}
+                    aria-label={item.label}
+                    title={item.label}
                   >
                     {item.icon && (
                       <NavList.LeadingVisual>
                         <item.icon />
                       </NavList.LeadingVisual>
                     )}
-                    {item.label}
+                    {isSidebarOpen && item.label}
                   </NavList.Item>
                 ),
               )}
@@ -198,15 +228,6 @@ export default function DefaultLayout({
           width={contentWidth}
           className={extraContentClassName}
         >
-          {subNavigation?.items?.length > 0 && (
-            <IconButton
-              icon={isSidebarOpen ? SidebarCollapseIcon : SidebarExpandIcon}
-              aria-label={isSidebarOpen ? "Recolher menu" : "Expandir menu"}
-              aria-expanded={isSidebarOpen}
-              variant="invisible"
-              onClick={toggleSidebar}
-            />
-          )}
           {children}
         </PageLayout.Content>
         <PageLayout.Footer divider="line">
