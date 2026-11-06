@@ -71,11 +71,15 @@ async function assertValid(field, value) {
   if (value === null || value === undefined) {
     return;
   }
+  // Volume anual é uma referência de período, não uma unidade SI de tempo.
+  if (value === "m³/ano" || value === "m3/ano") {
+    return;
+  }
   if (!isValidExpression(value, await list())) {
     throw new ValidationError({
       name: "ValidationError",
       message: `A unidade '${value}' não é uma unidade do SI.`,
-      action: `Use símbolos do SI em '${field}' (ex.: kg, m³/h, t/d, kW·h). Consulte GET /api/v1/units.`,
+      action: `Use símbolos do SI em '${field}' (ex.: kg, m³/h, t/d, kW·h) ou m³/ano para volume anual. Consulte GET /api/v1/units.`,
       status_code: 400,
     });
   }

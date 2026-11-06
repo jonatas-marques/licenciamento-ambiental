@@ -49,7 +49,13 @@ const SHORTCUTS = [
   ["Delete ou Backspace", "Remove a etapa ou o fluxo selecionado"],
 ];
 
-const EMPTY_DATA = { operations: [], flows: [], items: [], flowItems: [] };
+const EMPTY_DATA = {
+  operations: [],
+  groups: [],
+  flows: [],
+  items: [],
+  flowItems: [],
+};
 const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5];
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
@@ -95,7 +101,13 @@ function withPositions(operations, area) {
 }
 
 // Editor visual de fluxogramas: paleta, área de desenho em grade e propriedades.
-export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
+export default function FlowchartEditor({
+  projectId,
+  flowcharts,
+  canEdit,
+  initialFlowchartId = "",
+  initialFlowId = "",
+}) {
   const baseUrl = `/api/v1/projects/${projectId}/mce`;
   const confirm = useConfirm();
   const svgRef = useRef(null);
@@ -109,10 +121,12 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
   const [itemPopover, setItemPopover] = useState(null);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
-  const [flowchartId, setFlowchartId] = useState("");
+  const [flowchartId, setFlowchartId] = useState(initialFlowchartId);
   const [data, setData] = useState(EMPTY_DATA);
   const [areas, setAreas] = useState({});
-  const [selection, setSelection] = useState(null);
+  const [selection, setSelection] = useState(
+    initialFlowId ? { kind: "flow", id: initialFlowId } : null,
+  );
   const [drag, setDrag] = useState(null);
   const [connection, setConnection] = useState(null);
   const [resize, setResize] = useState(null);
@@ -144,13 +158,14 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
   );
 
   const fetchAll = useCallback(async () => {
-    const [operations, flows, items, flowItems] = await Promise.all([
+    const [operations, groups, flows, items, flowItems] = await Promise.all([
       call("operations"),
+      call("operation_groups"),
       call("flows"),
       call("items"),
       call("flow_items"),
     ]);
-    return { operations, flows, items, flowItems };
+    return { operations, groups, flows, items, flowItems };
   }, [call]);
 
   useEffect(() => {
@@ -279,13 +294,27 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
   const operationsById = new Map(
     operations.map((operation) => [operation.id, operation]),
   );
+  const groups = data.groups.filter(
+    (group) => group.flowchart_id === selectedFlowchartId,
+  );
+  const groupBoxes = new Map(
+    groups.map((group) => [
+      group.id,
+      {
+        x: Number(group.shape_x),
+        y: Number(group.shape_y),
+        width: Number(group.width),
+        height: Number(group.height),
+      },
+    ]),
+  );
   const flows = data.flows.filter(
     (item) => item.flowchart_id === selectedFlowchartId,
   );
   const flowIds = new Set(flows.map((flow) => flow.id));
   const flowItems = data.flowItems.filter((item) => flowIds.has(item.flow_id));
   const offsets = flowchart.flowOffsets(flows);
-  const size = flowchart.canvasSize(boxes, area);
+  const size = flowchart.canvasSize(new Map([...boxes, ...groupBoxes]), area);
   const itemName = (id) => data.items.find((item) => item.id === id)?.name;
 
   const activeSelection = (() => {
@@ -294,6 +323,7 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
     }
     const exists = {
       operation: () => operationsById.has(selection.id),
+      group: () => groupBoxes.has(selection.id),
       flow: () => flows.some((flow) => flow.id === selection.id),
       item: () => data.items.some((item) => item.id === selection.id),
     }[selection.kind];
@@ -310,11 +340,27 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
 
   function placementFor(operation, box) {
     const boundary = flowchart.boundaryOf(box, area);
+    const category = flowchart.categoryFor(
+      boundary,
+      operation.category,
+      box,
+      area,
+    );
     return {
       shape_x: box.x,
       shape_y: box.y,
       boundary,
-      category: flowchart.categoryFor(boundary, operation.category, box, area),
+      category,
+      ...(operation.water_type &&
+      !flowchart.WATER_TYPES.some(
+        (entry) =>
+          entry.value === operation.water_type && entry.category === category,
+      )
+        ? { water_type: null }
+        : {}),
+      ...(boundary === "external" && operation.group_id
+        ? { group_id: null }
+        : {}),
     };
   }
 
@@ -502,13 +548,65 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
     }
   }
 
-  function startConnection(event, operation) {
+  function startConnection(event, endpoint) {
     event.stopPropagation();
     if (!canEdit || isBusy) {
       return;
     }
     svgRef.current.setPointerCapture(event.pointerId);
-    setConnection({ sourceId: operation.id, ...toPoint(event) });
+    setConnection({ source: endpoint, ...toPoint(event) });
+  }
+
+  function endpointBox(endpoint) {
+    if (endpoint.kind === "operation") return boxes.get(endpoint.id);
+    if (endpoint.kind === "group") return groupBoxes.get(endpoint.id);
+    return area;
+  }
+
+  function endpointAt(point, source) {
+    const operationId = flowchart.findOperationAt(
+      boxes,
+      point,
+      source.kind === "operation" ? source.id : null,
+    );
+    if (operationId) return { kind: "operation", id: operationId };
+    const nearBorder = (box) => {
+      const { x, y, width, height } = box;
+      return (
+        point.x >= x - 12 &&
+        point.x <= x + width + 12 &&
+        point.y >= y - 12 &&
+        point.y <= y + height + 12 &&
+        Math.min(
+          Math.abs(point.x - x),
+          Math.abs(point.x - x - width),
+          Math.abs(point.y - y),
+          Math.abs(point.y - y - height),
+        ) <= 12
+      );
+    };
+    for (const [id, box] of groupBoxes) {
+      if (!(source.kind === "group" && source.id === id) && nearBorder(box))
+        return { kind: "group", id };
+    }
+    if (source.kind !== "boundary" && nearBorder(area))
+      return { kind: "boundary" };
+    return null;
+  }
+
+  function flowEndpoint(flow, side) {
+    if (flow[`${side}_operation_id`])
+      return { kind: "operation", id: flow[`${side}_operation_id`] };
+    if (flow[`${side}_group_id`])
+      return { kind: "group", id: flow[`${side}_group_id`] };
+    if (flow[`${side}_boundary`]) return { kind: "boundary" };
+    return null;
+  }
+
+  function endpointField(endpoint, side) {
+    return endpoint.kind === "boundary"
+      ? { [`${side}_boundary`]: true }
+      : { [`${side}_${endpoint.kind}_id`]: endpoint.id };
   }
 
   // Começa a arrastar o desvio (segmento do meio) de um fluxo.
@@ -557,7 +655,13 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
       });
     } else if (connection) {
       setConnection({ ...connection, ...point });
-      setHoverId(flowchart.findOperationAt(boxes, point, connection.sourceId));
+      setHoverId(
+        flowchart.findOperationAt(
+          boxes,
+          point,
+          connection.source.kind === "operation" ? connection.source.id : null,
+        ),
+      );
     } else if (bend) {
       const { handle } = bend;
       const position = handle.horizontal ? point.x : point.y;
@@ -632,19 +736,15 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
     }
 
     if (current.connection) {
-      const targetId = flowchart.findOperationAt(
-        boxes,
-        toPoint(event),
-        current.connection.sourceId,
-      );
-      if (targetId) {
+      const target = endpointAt(toPoint(event), current.connection.source);
+      if (target) {
         await run(async () => {
           const created = await call("flows", {
             method: "POST",
             body: JSON.stringify({
               flowchart_id: selectedFlowchartId,
-              source_operation_id: current.connection.sourceId,
-              target_operation_id: targetId,
+              ...endpointField(current.connection.source, "source"),
+              ...endpointField(target, "target"),
             }),
           });
           setSelection({ kind: "flow", id: created.id });
@@ -666,11 +766,14 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
 
   async function removeElement(collection, element) {
     const isOperation = collection === "operations";
+    const isGroup = collection === "operation_groups";
     const confirmed = await confirm({
-      title: `Remover ${isOperation ? "a etapa" : "o fluxo"}?`,
-      content: isOperation
-        ? "Os fluxos ligados a esta etapa também serão removidos."
-        : "Os itens vinculados a este fluxo também serão removidos.",
+      title: `Remover ${isGroup ? "o grupo" : isOperation ? "a etapa" : "o fluxo"}?`,
+      content: isGroup
+        ? "As etapas permanecerão sem grupo. Remova os fluxos ligados diretamente ao grupo antes de excluí-lo."
+        : isOperation
+          ? "Os fluxos ligados a esta etapa também serão removidos."
+          : "Os itens vinculados a este fluxo também serão removidos.",
       confirmButtonContent: "Remover",
       confirmButtonType: "danger",
       cancelButtonContent: "Cancelar",
@@ -711,9 +814,10 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
     ) {
       event.preventDefault();
       const isOperation = activeSelection.kind === "operation";
-      const source = isOperation ? operations : flows;
+      const isGroup = activeSelection.kind === "group";
+      const source = isGroup ? groups : isOperation ? operations : flows;
       removeElement(
-        isOperation ? "operations" : "flows",
+        isGroup ? "operation_groups" : isOperation ? "operations" : "flows",
         source.find((entry) => entry.id === activeSelection.id),
       );
     }
@@ -771,7 +875,7 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
     );
   }
 
-  const connectionSource = connection && boxes.get(connection.sourceId);
+  const connectionSource = connection && endpointBox(connection.source);
 
   return (
     <div className={styles.editor}>
@@ -858,6 +962,27 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
           </Heading>
           {canEdit ? (
             <div className={styles.palette}>
+              <Button
+                block
+                leadingVisual={PlusIcon}
+                disabled={isBusy}
+                onClick={async () => {
+                  const created = await run(() =>
+                    call("operation_groups", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        flowchart_id: selectedFlowchartId,
+                        name: "Novo grupo",
+                        shape_x: area.x + 30,
+                        shape_y: area.y + 30,
+                      }),
+                    }),
+                  );
+                  if (created) setSelection({ kind: "group", id: created.id });
+                }}
+              >
+                Novo grupo de processo
+              </Button>
               {PALETTE.map((entry) => (
                 <Button
                   key={entry.kind}
@@ -1074,6 +1199,72 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
             >
               Empreendimento
             </text>
+            {groups.map((group) => {
+              const box = groupBoxes.get(group.id);
+              return (
+                <g key={group.id}>
+                  <rect
+                    x={box.x}
+                    y={box.y}
+                    width={box.width}
+                    height={box.height}
+                    rx="6"
+                    fill="none"
+                    stroke="#8250df"
+                    strokeWidth="2"
+                    strokeDasharray="7 4"
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      setSelection({ kind: "group", id: group.id });
+                    }}
+                  />
+                  <text
+                    x={box.x + 8}
+                    y={box.y + 20}
+                    fill="#8250df"
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      setSelection({ kind: "group", id: group.id });
+                    }}
+                  >
+                    {group.name}
+                  </text>
+                  {canEdit &&
+                    flowchart.anchorPoints(box).map((anchor) => (
+                      <circle
+                        key={anchor.side}
+                        cx={anchor.x}
+                        cy={anchor.y}
+                        r="6"
+                        className={styles.anchor}
+                        onPointerDown={(event) =>
+                          startConnection(event, {
+                            kind: "group",
+                            id: group.id,
+                          })
+                        }
+                      >
+                        <title>Conectar grupo {group.name}</title>
+                      </circle>
+                    ))}
+                </g>
+              );
+            })}
+            {canEdit &&
+              flowchart.anchorPoints(area).map((anchor) => (
+                <circle
+                  key={anchor.side}
+                  cx={anchor.x}
+                  cy={anchor.y}
+                  r="6"
+                  className={styles.anchor}
+                  onPointerDown={(event) =>
+                    startConnection(event, { kind: "boundary" })
+                  }
+                >
+                  <title>Conectar fronteira do empreendimento</title>
+                </circle>
+              ))}
             {canEdit && (
               <rect
                 x={area.x + area.width - 8}
@@ -1086,11 +1277,32 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
             )}
 
             {flows.map((flow) => {
-              const source = boxes.get(flow.source_operation_id);
-              const target = boxes.get(flow.target_operation_id);
+              const sourceEndpoint = flowEndpoint(flow, "source");
+              const targetEndpoint = flowEndpoint(flow, "target");
+              if (!sourceEndpoint || !targetEndpoint) return null;
+              let source = endpointBox(sourceEndpoint);
+              let target = endpointBox(targetEndpoint);
               if (!source || !target) {
                 return null;
               }
+              const sourceBox = source;
+              const targetBox = target;
+              const asPointBox = (box, other) => {
+                const point = flowchart.borderPoint(
+                  box,
+                  flowchart.center(other),
+                );
+                return {
+                  x: point.x - 0.5,
+                  y: point.y - 0.5,
+                  width: 1,
+                  height: 1,
+                };
+              };
+              if (sourceEndpoint.kind !== "operation")
+                source = asPointBox(sourceBox, targetBox);
+              if (targetEndpoint.kind !== "operation")
+                target = asPointBox(targetBox, sourceBox);
               const ratio =
                 bend?.flowId === flow.id && bend.ratio !== null
                   ? bend.ratio
@@ -1106,8 +1318,10 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
                 activeSelection?.kind === "flow" &&
                 activeSelection.id === flow.id;
               const direction = flowchart.flowDirection(
-                operationsById.get(flow.source_operation_id).boundary,
-                operationsById.get(flow.target_operation_id).boundary,
+                operationsById.get(flow.source_operation_id)?.boundary ??
+                  "internal",
+                operationsById.get(flow.target_operation_id)?.boundary ??
+                  "internal",
               );
               const crosses = direction === "input" || direction === "output";
               const lines = [
@@ -1189,7 +1403,9 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
                 canEdit &&
                 (isSelected ||
                   hoverId === operation.id ||
-                  (connection && connection.sourceId !== operation.id));
+                  (connection &&
+                    (connection.source.kind !== "operation" ||
+                      connection.source.id !== operation.id)));
               const isSource = operation.category === "fonte";
               const isSink = operation.category === "sumidouro";
               const tag = isSource ? "Início" : isSink ? "Fim" : null;
@@ -1316,20 +1532,21 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
                       </>
                     )}
                   {showAnchors &&
-                    flowchart
-                      .anchorPoints(box)
-                      .map((anchor) => (
-                        <circle
-                          key={anchor.side}
-                          cx={anchor.x}
-                          cy={anchor.y}
-                          r="6"
-                          className={styles.anchor}
-                          onPointerDown={(event) =>
-                            startConnection(event, operation)
-                          }
-                        />
-                      ))}
+                    flowchart.anchorPoints(box).map((anchor) => (
+                      <circle
+                        key={anchor.side}
+                        cx={anchor.x}
+                        cy={anchor.y}
+                        r="6"
+                        className={styles.anchor}
+                        onPointerDown={(event) =>
+                          startConnection(event, {
+                            kind: "operation",
+                            id: operation.id,
+                          })
+                        }
+                      />
+                    ))}
                 </g>
               );
             })}
@@ -1364,6 +1581,7 @@ export default function FlowchartEditor({ projectId, flowcharts, canEdit }) {
           <Inspector
             selection={activeSelection}
             operations={operations}
+            groups={groups}
             flows={flows}
             items={data.items}
             flowItems={flowItems}

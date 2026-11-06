@@ -5,6 +5,7 @@ import MceCollectionStatus from "../../../../../interface/MceCollectionStatus";
 import MceItemSection from "../../../../../interface/MceItemSection";
 import createProjectNavigation from "../../../../../interface/ProjectNavigation";
 import useMceCollection from "../../../../../interface/useMceCollection";
+import { useRouter } from "next/router";
 
 const title = "Fluxogramas";
 const description =
@@ -17,6 +18,7 @@ const fields = [
 
 export default function ProjectFlowchartsPage() {
   const mce = useMceCollection("flowcharts");
+  const router = useRouter();
   const isReady = mce.loadingStatus === "success" && mce.hasMce;
 
   return (
@@ -47,6 +49,16 @@ export default function ProjectFlowchartsPage() {
               projectId={mce.projectId}
               flowcharts={mce.items}
               canEdit={mce.canEdit}
+              initialFlowchartId={
+                typeof router.query.flowchart_id === "string"
+                  ? router.query.flowchart_id
+                  : ""
+              }
+              initialFlowId={
+                typeof router.query.flow_id === "string"
+                  ? router.query.flow_id
+                  : ""
+              }
             />
           </>
         )}

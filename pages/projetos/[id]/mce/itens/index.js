@@ -45,6 +45,9 @@ function renderUsage(item, extras) {
   const flows = Object.fromEntries(
     (extras.flows ?? []).map((flow) => [flow.id, flow]),
   );
+  const groups = Object.fromEntries(
+    (extras.operation_groups ?? []).map((group) => [group.id, group]),
+  );
   const usages = (extras.flow_items ?? []).filter(
     (flowItem) => flowItem.item_id === item.id && flows[flowItem.flow_id],
   );
@@ -57,8 +60,14 @@ function renderUsage(item, extras) {
     <ul style={{ margin: 0, paddingLeft: 16 }}>
       {usages.map((flowItem) => {
         const flow = flows[flowItem.flow_id];
-        const source = operations[flow.source_operation_id]?.name ?? "?";
-        const target = operations[flow.target_operation_id]?.name ?? "?";
+        const source =
+          operations[flow.source_operation_id]?.name ??
+          groups[flow.source_group_id]?.name ??
+          (flow.source_boundary ? "Empreendimento" : "?");
+        const target =
+          operations[flow.target_operation_id]?.name ??
+          groups[flow.target_group_id]?.name ??
+          (flow.target_boundary ? "Empreendimento" : "?");
         const quantity =
           flowItem.quantity === null || flowItem.quantity === undefined
             ? "sem quantidade"
@@ -100,7 +109,12 @@ const groupBy = {
 
 export default function ProjectItemsPage() {
   // Fluxos, itens de fluxo e etapas alimentam a coluna "Usado em".
-  const mce = useMceCollection("items", ["flows", "flow_items", "operations"]);
+  const mce = useMceCollection("items", [
+    "flows",
+    "flow_items",
+    "operations",
+    "operation_groups",
+  ]);
   const isReady = mce.loadingStatus === "success" && mce.hasMce;
 
   return (

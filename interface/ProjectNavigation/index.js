@@ -52,6 +52,12 @@ export default function createProjectNavigation(projectId, currentSection) {
           icon: PackageIcon,
           href: `${projectPath}/mce/itens`,
         },
+        {
+          id: "water-balance",
+          label: "Balanço hídrico",
+          icon: WorkflowIcon,
+          href: `${projectPath}/mce/balanco-hidrico`,
+        },
       ],
     },
     {

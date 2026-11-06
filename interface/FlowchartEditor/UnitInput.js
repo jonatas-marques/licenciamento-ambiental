@@ -33,6 +33,7 @@ export default function UnitInput(props) {
     <>
       <TextInput {...props} list={listId} autoComplete="off" />
       <datalist id={listId}>
+        <option value="m³/ano">Volume anual</option>
         {units.map((unit) => (
           <option key={unit.symbol} value={unit.symbol}>
             {unit.name} ({unit.quantity})

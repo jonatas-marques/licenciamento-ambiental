@@ -255,6 +255,221 @@ async function ensureDiagram(user, projectId, flowchartName, diagram) {
   }
 }
 
+// Acrescenta apenas registros ausentes, sem substituir edições feitas no exemplo.
+async function ensureWaterBalanceDiagram(user, projectId) {
+  const name = "Balanço hídrico — fontes e grupos (exemplo)";
+  await ensureItems("flowcharts", user, projectId, [
+    {
+      name,
+      description:
+        "Duas fontes alimentam um reservatório antes da distribuição aos grupos de uso.",
+      boundary_x: 100,
+      boundary_y: 200,
+      boundary_width: 900,
+      boundary_height: 720,
+    },
+  ]);
+  const charts = await mce.listItems("flowcharts", user, projectId);
+  const chart = charts.find((entry) => entry.name === name);
+  const existingGroups = (
+    await mce.listItems("operation_groups", user, projectId)
+  ).filter((entry) => entry.flowchart_id === chart.id);
+  const groupIds = {};
+  for (const group of [
+    {
+      key: "production",
+      name: "Unidade produtiva",
+      water_use: "industrial",
+      shape_x: 150,
+      shape_y: 450,
+      width: 300,
+      height: 220,
+    },
+    {
+      key: "support",
+      name: "Áreas de apoio",
+      water_use: "sanitario",
+      shape_x: 600,
+      shape_y: 450,
+      width: 300,
+      height: 220,
+    },
+  ]) {
+    const { key, ...values } = group;
+    const existing = existingGroups.find((entry) => entry.name === values.name);
+    const saved =
+      existing ??
+      (await mce.createItem("operation_groups", user, projectId, {
+        flowchart_id: chart.id,
+        ...values,
+      }));
+    groupIds[key] = saved.id;
+  }
+
+  const existingOperations = (
+    await mce.listItems("operations", user, projectId)
+  ).filter((entry) => entry.flowchart_id === chart.id);
+  const operationIds = {};
+  for (const operation of [
+    {
+      key: "well",
+      name: "Poço subterrâneo",
+      category: "fonte",
+      boundary: "external",
+      water_type: "subterranea",
+      shape_x: 200,
+      shape_y: 80,
+    },
+    {
+      key: "network",
+      name: "Rede pública de água",
+      category: "fonte",
+      boundary: "external",
+      water_type: "rede_publica",
+      shape_x: 650,
+      shape_y: 80,
+    },
+    {
+      key: "reservoir",
+      name: "Reservatório",
+      category: "estoque",
+      boundary: "internal",
+      shape_x: 450,
+      shape_y: 270,
+    },
+    {
+      key: "production",
+      name: "Lavagem industrial",
+      category: "transformacao",
+      boundary: "internal",
+      group: "production",
+      shape_x: 220,
+      shape_y: 540,
+    },
+    {
+      key: "support",
+      name: "Instalações sanitárias",
+      category: "apoio",
+      boundary: "internal",
+      group: "support",
+      shape_x: 670,
+      shape_y: 540,
+    },
+    {
+      key: "river",
+      name: "Corpo hídrico receptor",
+      category: "sumidouro",
+      boundary: "external",
+      water_type: "corpo_hidrico",
+      shape_x: 220,
+      shape_y: 1000,
+    },
+    {
+      key: "sewer",
+      name: "Rede coletora de esgoto",
+      category: "sumidouro",
+      boundary: "external",
+      water_type: "rede_coletora",
+      shape_x: 670,
+      shape_y: 1000,
+    },
+  ]) {
+    const { key, group, ...values } = operation;
+    const existing = existingOperations.find(
+      (entry) => entry.name === values.name,
+    );
+    const saved =
+      existing ??
+      (await mce.createItem("operations", user, projectId, {
+        flowchart_id: chart.id,
+        ...values,
+        ...(group && { group_id: groupIds[group] }),
+      }));
+    operationIds[key] = saved.id;
+  }
+
+  await ensureItems("items", user, projectId, [
+    { name: "Água — balanço hídrico (exemplo)", category: "agua" },
+    { name: "Efluente — balanço hídrico (exemplo)", category: "efluente" },
+  ]);
+  const items = await mce.listItems("items", user, projectId);
+  const water = items.find(
+    (item) => item.name === "Água — balanço hídrico (exemplo)",
+  );
+  const effluent = items.find(
+    (item) => item.name === "Efluente — balanço hídrico (exemplo)",
+  );
+  const existingFlows = (await mce.listItems("flows", user, projectId)).filter(
+    (entry) => entry.flowchart_id === chart.id,
+  );
+  const existingFlowItems = await mce.listItems("flow_items", user, projectId);
+
+  for (const flow of [
+    {
+      label: "Captação subterrânea",
+      source_operation_id: operationIds.well,
+      target_operation_id: operationIds.reservoir,
+      item: water,
+      quantity: 8000,
+    },
+    {
+      label: "Abastecimento público",
+      source_operation_id: operationIds.network,
+      target_operation_id: operationIds.reservoir,
+      item: water,
+      quantity: 4000,
+    },
+    {
+      label: "Uso industrial",
+      source_operation_id: operationIds.reservoir,
+      target_group_id: groupIds.production,
+      item: water,
+      quantity: 9000,
+    },
+    {
+      label: "Uso sanitário",
+      source_operation_id: operationIds.reservoir,
+      target_group_id: groupIds.support,
+      item: water,
+      quantity: 3000,
+    },
+    {
+      label: "Efluente industrial",
+      source_group_id: groupIds.production,
+      target_operation_id: operationIds.river,
+      item: effluent,
+      quantity: 6500,
+    },
+    {
+      label: "Efluente sanitário",
+      source_group_id: groupIds.support,
+      target_operation_id: operationIds.sewer,
+      item: effluent,
+      quantity: 2500,
+    },
+  ]) {
+    const { item, quantity, ...values } = flow;
+    const saved =
+      existingFlows.find((entry) => entry.label === values.label) ??
+      (await mce.createItem("flows", user, projectId, {
+        flowchart_id: chart.id,
+        ...values,
+      }));
+    if (
+      !existingFlowItems.some(
+        (entry) => entry.flow_id === saved.id && entry.item_id === item.id,
+      )
+    ) {
+      await mce.createItem("flow_items", user, projectId, {
+        flow_id: saved.id,
+        item_id: item.id,
+        quantity,
+        unit: "m³/ano",
+      });
+    }
+  }
+}
+
 // Resolve nome/modelo do catálogo (criado nas migrations) para IDs.
 async function catalogEquipment(name, extra = {}, brandModel) {
   if (brandModel) {
@@ -566,6 +781,7 @@ try {
       ],
     },
   );
+  await ensureWaterBalanceDiagram(owner, demoProject.id);
   await ensureMce(owner, demoProject.id, "completed");
 
   // MCE em rascunho.
@@ -631,6 +847,9 @@ try {
   ]);
 
   console.log("Dados de desenvolvimento prontos.");
+  console.log(
+    "Balanço hídrico: no projeto Mineradora Rio Claro, selecione o fluxograma Balanço hídrico — fontes e grupos (exemplo).",
+  );
   console.log(`Senha de todos os usuários de exemplo: ${password}`);
   for (const seedUser of users) {
     console.log(`- ${seedUser.role}: CPF ${seedUser.cpf} (${seedUser.email})`);

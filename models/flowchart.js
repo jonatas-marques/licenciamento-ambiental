@@ -32,6 +32,26 @@ export const ITEM_CATEGORIES = [
   { value: "agua", label: "Água" },
 ];
 
+export const WATER_USES = [
+  { value: "sanitario", label: "Sanitário" },
+  { value: "industrial", label: "Industrial" },
+  { value: "outro", label: "Outro" },
+];
+export const WATER_TYPES = [
+  { value: "rede_publica", label: "Rede pública", category: "fonte" },
+  { value: "subterranea", label: "Água subterrânea", category: "fonte" },
+  { value: "superficial", label: "Água superficial", category: "fonte" },
+  { value: "outra_fonte", label: "Outra fonte", category: "fonte" },
+  { value: "rede_coletora", label: "Rede coletora", category: "sumidouro" },
+  { value: "corpo_hidrico", label: "Corpo hídrico", category: "sumidouro" },
+  {
+    value: "tratamento_externo",
+    label: "Tratamento externo",
+    category: "sumidouro",
+  },
+  { value: "outro_destino", label: "Outro destino", category: "sumidouro" },
+];
+
 // Campos específicos de cada subtipo de item.
 export const ITEM_DETAIL_FIELDS = {
   residuo: [
@@ -358,17 +378,20 @@ function flowGeometry(sourceBox, targetBox, offset = 0, ratio = 0.5) {
 function flowOffsets(flows) {
   const groups = new Map();
   for (const flow of flows) {
-    const key = [flow.source_operation_id, flow.target_operation_id]
-      .sort()
-      .join(":");
+    const endpoint = (side) =>
+      flow[`${side}_operation_id`] ?? flow[`${side}_group_id`] ?? "boundary";
+    const key = [endpoint("source"), endpoint("target")].sort().join(":");
     groups.set(key, [...(groups.get(key) ?? []), flow]);
   }
 
   const offsets = new Map();
   for (const group of groups.values()) {
     group.forEach((flow, index) => {
-      const sign =
-        flow.source_operation_id <= flow.target_operation_id ? 1 : -1;
+      const source =
+        flow.source_operation_id ?? flow.source_group_id ?? "boundary";
+      const target =
+        flow.target_operation_id ?? flow.target_group_id ?? "boundary";
+      const sign = source <= target ? 1 : -1;
       offsets.set(flow.id, (index - (group.length - 1) / 2) * 24 * sign);
     });
   }
@@ -435,6 +458,8 @@ const flowchart = {
   OPERATION_BOUNDARIES,
   OPERATION_CATEGORIES,
   ITEM_CATEGORIES,
+  WATER_USES,
+  WATER_TYPES,
   ITEM_DETAIL_FIELDS,
   boundaryAreaOf,
   resizeBoundaryArea,
@@ -448,6 +473,8 @@ const flowchart = {
   boxOf,
   findFreePosition,
   anchorPoints,
+  borderPoint,
+  center,
   flowGeometry,
   flowOffsets,
   findOperationAt,

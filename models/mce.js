@@ -111,6 +111,19 @@ const OPERATION_CATEGORIES = [
   "fonte",
   "sumidouro",
 ];
+const WATER_USES = ["sanitario", "industrial", "outro"];
+const WATER_SOURCE_TYPES = [
+  "rede_publica",
+  "subterranea",
+  "superficial",
+  "outra_fonte",
+];
+const WATER_DESTINATION_TYPES = [
+  "rede_coletora",
+  "corpo_hidrico",
+  "tratamento_externo",
+  "outro_destino",
+];
 
 // A categoria do item define a tabela com os detalhes específicos.
 const ITEM_SUBTYPES = {
@@ -158,6 +171,26 @@ const RESOURCES = {
     },
     orderBy: "name ASC, created_at ASC",
   },
+  operation_groups: {
+    table: "operation_groups",
+    label: "Grupo",
+    required: ["flowchart_id", "name"],
+    selectSql: "SELECT operation_groups.* FROM operation_groups",
+    scope: (mceId) =>
+      `operation_groups.flowchart_id IN (SELECT id FROM flowcharts WHERE mce_id = ${mceId})`,
+    references: [{ field: "flowchart_id", resource: "flowcharts" }],
+    immutable: ["flowchart_id"],
+    fields: {
+      flowchart_id: uuid("flowchart_id"),
+      name: text("name", 254),
+      water_use: oneOf("water_use", WATER_USES, { allowEmpty: true }),
+      shape_x: number("shape_x"),
+      shape_y: number("shape_y"),
+      width: number("width"),
+      height: number("height"),
+    },
+    orderBy: "name ASC, created_at ASC",
+  },
   operations: {
     table: "operations",
     label: "Etapa",
@@ -165,7 +198,10 @@ const RESOURCES = {
     selectSql: "SELECT operations.* FROM operations",
     scope: (mceId) =>
       `operations.flowchart_id IN (SELECT id FROM flowcharts WHERE mce_id = ${mceId})`,
-    references: [{ field: "flowchart_id", resource: "flowcharts" }],
+    references: [
+      { field: "flowchart_id", resource: "flowcharts" },
+      { field: "group_id", resource: "operation_groups", sameFlowchart: true },
+    ],
     immutable: ["flowchart_id"],
     fields: {
       flowchart_id: uuid("flowchart_id"),
@@ -173,6 +209,12 @@ const RESOURCES = {
       name: text("name", 254),
       type: text("type"),
       category: oneOf("category", OPERATION_CATEGORIES, { allowEmpty: true }),
+      group_id: uuid("group_id"),
+      water_type: oneOf(
+        "water_type",
+        [...WATER_SOURCE_TYPES, ...WATER_DESTINATION_TYPES],
+        { allowEmpty: true },
+      ),
       description: text("description"),
       shape_x: number("shape_x"),
       shape_y: number("shape_y"),
@@ -215,7 +257,7 @@ const RESOURCES = {
   flows: {
     table: "flows",
     label: "Fluxo",
-    required: ["flowchart_id", "source_operation_id", "target_operation_id"],
+    required: ["flowchart_id"],
     selectSql: "SELECT flows.* FROM flows",
     scope: (mceId) =>
       `flows.flowchart_id IN (SELECT id FROM flowcharts WHERE mce_id = ${mceId})`,
@@ -231,12 +273,28 @@ const RESOURCES = {
         resource: "operations",
         sameFlowchart: true,
       },
+      {
+        field: "source_group_id",
+        resource: "operation_groups",
+        sameFlowchart: true,
+      },
+      {
+        field: "target_group_id",
+        resource: "operation_groups",
+        sameFlowchart: true,
+      },
     ],
     immutable: ["flowchart_id"],
     fields: {
       flowchart_id: uuid("flowchart_id"),
       source_operation_id: uuid("source_operation_id"),
       target_operation_id: uuid("target_operation_id"),
+      source_group_id: uuid("source_group_id"),
+      target_group_id: uuid("target_group_id"),
+      source_boundary: boolean("source_boundary"),
+      target_boundary: boolean("target_boundary"),
+      water_use: oneOf("water_use", WATER_USES, { allowEmpty: true }),
+      water_reuse: boolean("water_reuse"),
       label: text("label"),
       type: text("type"),
       description: text("description"),
@@ -535,6 +593,69 @@ function rejectImmutableChanges(resource, existing, values) {
   }
 }
 
+function validateFlowchartResource(resourceName, values) {
+  if (resourceName === "operation_groups") {
+    for (const field of ["shape_x", "shape_y"]) {
+      if (values[field] === null)
+        invalid(field, "um número maior ou igual a zero");
+    }
+    if (
+      values.width !== undefined &&
+      (values.width === null || values.width < 100)
+    ) {
+      invalid("width", "um número maior ou igual a 100");
+    }
+    if (
+      values.height !== undefined &&
+      (values.height === null || values.height < 80)
+    ) {
+      invalid("height", "um número maior ou igual a 80");
+    }
+  }
+  if (resourceName === "operations" && values.water_type) {
+    const allowed =
+      values.category === "fonte"
+        ? WATER_SOURCE_TYPES
+        : values.category === "sumidouro"
+          ? WATER_DESTINATION_TYPES
+          : [];
+    if (!allowed.includes(values.water_type)) {
+      invalid("water_type", "um tipo compatível com a categoria da etapa");
+    }
+    if (
+      resourceName === "operations" &&
+      values.group_id &&
+      values.boundary === "external"
+    ) {
+      invalid("group_id", "um grupo apenas para etapas internas");
+    }
+  }
+  if (resourceName === "flows") {
+    for (const field of ["source_boundary", "target_boundary", "water_reuse"]) {
+      if (values[field] === null) invalid(field, "verdadeiro ou falso");
+    }
+    for (const side of ["source", "target"]) {
+      const endpoints = [
+        values[`${side}_operation_id`],
+        values[`${side}_group_id`],
+        values[`${side}_boundary`] === true,
+      ].filter(Boolean);
+      if (endpoints.length !== 1) {
+        invalid(side, "uma única etapa, grupo ou fronteira");
+      }
+    }
+    if (
+      (values.source_boundary && values.target_boundary) ||
+      (values.source_operation_id &&
+        values.source_operation_id === values.target_operation_id) ||
+      (values.source_group_id &&
+        values.source_group_id === values.target_group_id)
+    ) {
+      invalid("target", "um destino diferente da origem");
+    }
+  }
+}
+
 function buildSearchConditions(query, columns, values) {
   const tokens = String(query ?? "")
     .trim()
@@ -767,6 +888,7 @@ async function createItem(resourceName, requestingUser, projectId, input) {
   const mce = await findByProjectId(projectId);
   const { fields, details } = splitDetails(resource, input);
   const values = parseValues(resource, fields, { partial: false });
+  validateFlowchartResource(resourceName, values);
   await validateUnits(resource.fields, values);
   await validateOneOf(resource, values);
   if (values.name_id) {
@@ -810,6 +932,7 @@ async function updateItem(
       ? {}
       : parseValues(resource, fields, { partial: true });
   rejectImmutableChanges(resource, existing, values);
+  validateFlowchartResource(resourceName, { ...existing, ...values });
   await validateUnits(resource.fields, values);
   await validateOneOf(resource, values, { ...existing, ...values });
   await validateReferences(
@@ -851,10 +974,26 @@ async function removeItem(resourceName, requestingUser, projectId, itemId) {
   const mce = await findByProjectId(projectId);
   const existing = await findItem(resourceName, mce.id, itemId);
 
-  await database.query({
-    text: `DELETE FROM ${resource.table} WHERE id = $1 AND ${scopeCondition(resource, "$2")};`,
-    values: [itemId, mce.id],
-  });
+  try {
+    await database.query({
+      text: `DELETE FROM ${resource.table} WHERE id = $1 AND ${scopeCondition(resource, "$2")};`,
+      values: [itemId, mce.id],
+    });
+  } catch (error) {
+    if (
+      resourceName === "operation_groups" &&
+      error.cause?.code === "23503" &&
+      ["flows_source_group_fkey", "flows_target_group_fkey"].includes(
+        error.cause.constraint,
+      )
+    ) {
+      throw new ConflictError({
+        message: "O grupo possui fluxos conectados.",
+        action: "Reconecte ou remova esses fluxos antes de excluir o grupo.",
+      });
+    }
+    throw error;
+  }
 
   return existing;
 }
