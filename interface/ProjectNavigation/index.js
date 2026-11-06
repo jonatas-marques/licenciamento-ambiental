@@ -29,6 +29,12 @@ export default function createProjectNavigation(projectId, currentSection) {
       href: `${projectPath}/mce`,
       children: [
         {
+          id: "mce",
+          label: "Visão geral",
+          icon: FileIcon,
+          href: `${projectPath}/mce`,
+        },
+        {
           id: "flowcharts",
           label: "Fluxogramas",
           icon: WorkflowIcon,
