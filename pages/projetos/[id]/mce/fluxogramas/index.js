@@ -1,0 +1,68 @@
+import { Heading, Stack } from "@primer/react";
+import DefaultLayout from "../../../../../interface/DefaultLayout";
+import FlowchartEditor from "../../../../../interface/FlowchartEditor";
+import MceCollectionStatus from "../../../../../interface/MceCollectionStatus";
+import MceItemSection from "../../../../../interface/MceItemSection";
+import createProjectNavigation from "../../../../../interface/ProjectNavigation";
+import useMceCollection from "../../../../../interface/useMceCollection";
+import { useRouter } from "next/router";
+
+const title = "Fluxogramas";
+const description =
+  "Fluxogramas conceituais de processos da atividade ou do empreendimento.";
+
+const fields = [
+  { name: "name", label: "Nome", required: true },
+  { name: "description", label: "Descrição", multiline: true },
+];
+
+export default function ProjectFlowchartsPage() {
+  const mce = useMceCollection("flowcharts");
+  const router = useRouter();
+  const isReady = mce.loadingStatus === "success" && mce.hasMce;
+
+  return (
+    <DefaultLayout
+      subNavigation={createProjectNavigation(mce.projectId, "flowcharts")}
+      metadata={{
+        title: "Fluxogramas",
+        description: "Editar fluxogramas do empreendimento ou atividade",
+      }}
+    >
+      <Stack gap="spacious">
+        {mce.projectName && <Heading as="h1">{mce.projectName}</Heading>}
+        <MceCollectionStatus title={title} {...mce} />
+        {isReady && (
+          <>
+            <MceItemSection
+              projectId={mce.projectId}
+              collection="flowcharts"
+              title={title}
+              description={description}
+              singular="fluxograma"
+              fields={fields}
+              items={mce.items}
+              onItemsChange={mce.setItems}
+              canEdit={mce.canEdit}
+            />
+            <FlowchartEditor
+              projectId={mce.projectId}
+              flowcharts={mce.items}
+              canEdit={mce.canEdit}
+              initialFlowchartId={
+                typeof router.query.flowchart_id === "string"
+                  ? router.query.flowchart_id
+                  : ""
+              }
+              initialFlowId={
+                typeof router.query.flow_id === "string"
+                  ? router.query.flow_id
+                  : ""
+              }
+            />
+          </>
+        )}
+      </Stack>
+    </DefaultLayout>
+  );
+}

@@ -6,6 +6,22 @@ import {
 } from "infra/errors.js";
 
 const allowedMemberRoles = ["owner", "admin", "member", "viewer"];
+const memberNameSelection = `
+  COALESCE(
+    (
+      SELECT CASE WHEN COUNT(*) = 1 THEN MIN(natural_persons.name) END
+      FROM natural_persons
+      WHERE natural_persons.user_id = users.id
+    ),
+    (
+      SELECT CASE WHEN COUNT(*) = 1 THEN MIN(natural_persons.name) END
+      FROM natural_persons
+      WHERE natural_persons.user_id IS NULL
+        AND natural_persons.cpf = users.cpf
+    ),
+    'Nome não cadastrado'
+  ) AS member_name
+`;
 
 async function findOneById(projectId) {
   const results = await database.query({
@@ -31,62 +47,52 @@ async function findOneById(projectId) {
   return results.rows[0];
 }
 
+async function listByUserId(userId) {
+  const results = await database.query({
+    text: `
+      SELECT projects.*
+      FROM projects
+      INNER JOIN project_members
+        ON project_members.project_id = projects.id
+      WHERE project_members.user_id = $1
+        AND project_members.valid_from <= timezone('utc', now())
+        AND (
+          project_members.valid_to IS NULL
+          OR project_members.valid_to >= timezone('utc', now())
+        )
+      ORDER BY projects.name ASC;
+    `,
+    values: [userId],
+  });
+
+  return results.rows;
+}
+
 async function create(newProjectInputValues) {
   await validateUniqueName(newProjectInputValues.name);
 
-  const createdProject = await runInsertQueryIntoProjects(
-    newProjectInputValues,
-  );
-
-  const projectCreatorMembershipValues = {
-    project_id: createdProject.id,
-    user_id: newProjectInputValues.created_by,
-    role: "owner",
-  };
-  await runInsertQueryIntoProjectMembers(projectCreatorMembershipValues);
-  /**
-   * First user to create the project is the owner, so we add
-   * the project creator as a member with the "owner" role.
-   */
-  // Alternativamente rodar insertQuery ? Pode necessitar try para nao criar membros ou projetso órfãos
-  // const createdProjectMember = await runInsertQueryIntoProjectMembers(createdProject);
-
-  return createdProject;
-
-  async function runInsertQueryIntoProjects(newProjectInputValues) {
-    const results = await database.query({
+  return database.transaction(async (client) => {
+    const projectResults = await client.query({
       text: `
-        INSERT INTO 
-            projects (name, created_by) 
-        VALUES 
-            ($1, $2)
-        RETURNING 
-            *
-        ;`,
+        INSERT INTO projects (name, created_by)
+        VALUES ($1, $2)
+        RETURNING *;
+      `,
       values: [newProjectInputValues.name, newProjectInputValues.created_by],
     });
-    return results.rows[0];
-  }
-  async function runInsertQueryIntoProjectMembers(
-    projectCreatorMembershipValues,
-  ) {
-    const results = await database.query({
+
+    const createdProject = projectResults.rows[0];
+
+    await client.query({
       text: `
-        INSERT INTO 
-            project_members (project_id, user_id, role) 
-        VALUES 
-            ($1, $2, $3)
-        RETURNING 
-            *
-        ;`,
-      values: [
-        projectCreatorMembershipValues.project_id,
-        projectCreatorMembershipValues.user_id,
-        projectCreatorMembershipValues.role,
-      ],
+        INSERT INTO project_members (project_id, user_id, role)
+        VALUES ($1, $2, $3);
+      `,
+      values: [createdProject.id, newProjectInputValues.created_by, "owner"],
     });
-    return results.rows[0];
-  }
+
+    return createdProject;
+  });
 }
 
 async function validateUniqueName(name) {
@@ -115,7 +121,10 @@ async function validateUniqueName(name) {
 async function update(id, userInputValues) {
   const currentProject = await findOneById(id);
 
-  if ("name" in userInputValues) {
+  if (
+    "name" in userInputValues &&
+    userInputValues.name !== currentProject.name
+  ) {
     await validateUniqueName(userInputValues.name);
   }
 
@@ -127,9 +136,9 @@ async function update(id, userInputValues) {
   async function runUpdateQuery(projectWithNewValues) {
     const results = await database.query({
       text: `
-        UPDATE 
+        UPDATE
             projects
-        SET 
+        SET
             name = $2,
             updated_at = timezone('utc'::text, now())
         WHERE
@@ -174,42 +183,39 @@ async function getMembership(projectId, member) {
 }
 
 async function addMember(requestingUser, userInputValues) {
-  // `add` means `create` membership
-  // validade unique member for the project
+  validateMemberRole(userInputValues.role);
+
   await validateUniqueMember(
-    // Pode refatorar para utilizar o getMebership()
     userInputValues.project_id,
     userInputValues.user_id,
   );
 
-  const memberTryingToAdd = await getMembership(
+  const memberTryingToAdd = await getMembershipByUserId(
     userInputValues.project_id,
-    requestingUser,
+    requestingUser.id,
   );
 
-  if (!["owner", "admin"].includes(memberTryingToAdd.role)) {
-    throw new ForbiddenError({
-      name: "ForbiddenError",
-      message: "Você não possui permissão para adicionar membros ao projeto.",
-      action:
-        "Apenas usuários com role 'owner' ou 'admin' podem adicionar membros.",
-      status_code: 403,
-    });
+  ensureCanManageMembers(memberTryingToAdd);
+
+  if (userInputValues.role === "owner") {
+    ensureCanManageOwner(memberTryingToAdd);
   }
-  // Implementation for inserting member into project_members table.
-  const addedMember = await runInsertQuery(userInputValues);
-  return addedMember;
+
+  return await runInsertQuery(userInputValues);
 
   async function runInsertQuery(userInputValues) {
     const results = await database.query({
       text: `
-        INSERT INTO 
-            project_members (project_id, user_id, role) 
-        VALUES 
-            ($1, $2, $3)
-        RETURNING 
-            *
-        ;`,
+        WITH inserted_member AS (
+          INSERT INTO project_members (project_id, user_id, role)
+          VALUES ($1, $2, $3)
+          RETURNING *
+        )
+        SELECT inserted_member.*, ${memberNameSelection}
+        FROM inserted_member
+        INNER JOIN users
+          ON users.id = inserted_member.user_id;
+      `,
       values: [
         userInputValues.project_id,
         userInputValues.user_id,
@@ -259,6 +265,7 @@ async function getMembershipByUserId(projectId, userId) {
       FROM project_members
       WHERE project_id = $1
         AND user_id = $2
+        AND valid_from <= timezone('utc', now())
         AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
       LIMIT 1;
     `,
@@ -293,6 +300,46 @@ async function ensureRequesterIsMemberOrThrowForbidden(
   }
 }
 
+async function ensureCanUpdateProject(projectId, requestingUser) {
+  await ensureRequesterIsMemberOrThrowForbidden(projectId, requestingUser);
+
+  const requesterMembership = await getMembershipByUserId(
+    projectId,
+    requestingUser.id,
+  );
+
+  if (!["owner", "admin"].includes(requesterMembership.role)) {
+    throw new ForbiddenError({
+      message: "Você não possui permissão para atualizar esse projeto.",
+      action:
+        "Apenas owner ou admin do projeto podem atualizar os dados do projeto.",
+    });
+  }
+}
+
+async function ensureAnotherActiveOwnerExists(projectId, excludedUserId) {
+  const results = await database.query({
+    text: `
+      SELECT id
+      FROM project_members
+      WHERE project_id = $1
+        AND user_id <> $2
+        AND role = 'owner'
+        AND valid_from <= timezone('utc', now())
+        AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
+      LIMIT 1;
+    `,
+    values: [projectId, excludedUserId],
+  });
+
+  if (results.rowCount === 0) {
+    throw new ValidationError({
+      message: "O projeto precisa ter ao menos um proprietário ativo.",
+      action: "Adicione outro proprietário antes de remover ou rebaixar este.",
+    });
+  }
+}
+
 function ensureCanManageMembers(requesterMembership) {
   if (!["owner", "admin"].includes(requesterMembership.role)) {
     throw new ForbiddenError({
@@ -318,11 +365,18 @@ async function listMembers(requestingUser, projectId) {
 
   const results = await database.query({
     text: `
-      SELECT *
+      SELECT
+        project_members.*,
+        ${memberNameSelection}
       FROM project_members
-      WHERE project_id = $1
-        AND (valid_to IS NULL OR valid_to >= timezone('utc', now()))
-      ORDER BY valid_from ASC;
+      INNER JOIN users
+        ON users.id = project_members.user_id
+      WHERE project_members.project_id = $1
+        AND (
+          project_members.valid_to IS NULL
+          OR project_members.valid_to >= timezone('utc', now())
+        )
+      ORDER BY project_members.valid_from ASC;
     `,
     values: [projectId],
   });
@@ -353,6 +407,13 @@ async function updateMember(requestingUser, projectId, userId, patchValues) {
   }
   if ("role" in patchValues && patchValues.role === "owner") {
     ensureCanManageOwner(requesterMembership);
+  }
+  if (
+    targetMembership.role === "owner" &&
+    "role" in patchValues &&
+    patchValues.role !== "owner"
+  ) {
+    await ensureAnotherActiveOwnerExists(projectId, userId);
   }
 
   const fields = [];
@@ -433,6 +494,7 @@ async function removeMember(requestingUser, projectId, userId) {
   // Remover owner: só owner pode
   if (targetMembership.role === "owner") {
     ensureCanManageOwner(requesterMembership);
+    await ensureAnotherActiveOwnerExists(projectId, userId);
   }
 
   const results = await database.query({
@@ -456,6 +518,7 @@ async function removeMember(requestingUser, projectId, userId) {
 }
 
 const project = {
+  listByUserId,
   listMembers,
   getMember,
   updateMember,
@@ -464,6 +527,9 @@ const project = {
   update,
   findOneById,
   getMembership,
+  getMembershipByUserId,
+  ensureRequesterIsMemberOrThrowForbidden,
+  ensureCanUpdateProject,
   validateUniqueName,
   addMember,
   validateUniqueMember,

@@ -36,7 +36,7 @@ describe("GET /api/v1/projects/[id]/parties/[party_id]", () => {
     const legal = await orchestrator.createLegalPerson();
 
     const created = await party.addParty(activatedOwner, project.id, {
-      person_cp: legal.cnpj,
+      person_id: legal.id,
       interest: "consultor",
     });
 
@@ -51,7 +51,7 @@ describe("GET /api/v1/projects/[id]/parties/[party_id]", () => {
       expect.objectContaining({
         id: created.id,
         project_id: project.id,
-        person_cp: legal.cnpj,
+        person_id: legal.id,
         interest: "consultor",
       }),
     );

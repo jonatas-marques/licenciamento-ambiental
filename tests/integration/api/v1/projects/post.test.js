@@ -1,4 +1,5 @@
 import { version as uuidVersion } from "uuid";
+import project from "models/project.js";
 import orchestrator from "tests/orchestrator.js";
 import webserver from "infra/webserver.js";
 
@@ -66,6 +67,28 @@ describe("POST /api/v1/projects", () => {
       expect(uuidVersion(responseBody.id)).toBe(4);
       expect(Date.parse(responseBody.created_at)).not.toBeNaN();
       expect(Date.parse(responseBody.updated_at)).not.toBeNaN();
+
+      const ownerMembership = await project.getMembership(
+        responseBody.id,
+        activatedUser,
+      );
+      expect(ownerMembership).toEqual(
+        expect.objectContaining({
+          project_id: responseBody.id,
+          user_id: activatedUser.id,
+          role: "owner",
+        }),
+      );
+
+      const listResponse = await fetch(`${webserver.origin}/api/v1/projects`, {
+        headers: {
+          Cookie: `session_id=${userSessionObject.token}`,
+        },
+      });
+      expect(listResponse.status).toBe(200);
+      expect(await listResponse.json()).toEqual([
+        expect.objectContaining({ id: responseBody.id }),
+      ]);
     });
 
     test("With duplicated `name`", async () => {

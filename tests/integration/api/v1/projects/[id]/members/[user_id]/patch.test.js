@@ -8,6 +8,35 @@ beforeAll(async () => {
 });
 
 describe("PATCH /api/v1/projects/[id]/members/[user_id]", () => {
+  test("Owner cannot change their role when they are the only owner", async () => {
+    const owner = await orchestrator.createUser();
+    const activatedOwner = await orchestrator.activateUser(owner);
+    const project = await orchestrator.createProject({
+      created_by: activatedOwner.id,
+    });
+    const ownerSession = await orchestrator.createSession(activatedOwner);
+
+    const response = await fetch(
+      `${webserver.origin}/api/v1/projects/${project.id}/members/${activatedOwner.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `session_id=${ownerSession.token}`,
+        },
+        body: JSON.stringify({ role: "member" }),
+      },
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      name: "ValidationError",
+      message: "O projeto precisa ter ao menos um proprietário ativo.",
+      action: "Adicione outro proprietário antes de remover ou rebaixar este.",
+      status_code: 400,
+    });
+  });
+
   test("Anonymous user cannot patch membership", async () => {
     const project = await orchestrator.createProject();
     const user = await orchestrator.createUser();

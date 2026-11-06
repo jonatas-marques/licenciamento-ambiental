@@ -26,7 +26,7 @@ describe("DELETE /api/v1/projects/[id]/parties/[party_id]", () => {
 
     const createdNatural = await orchestrator.createNaturalPerson();
     const created = await party.addParty(activatedOwner, project.id, {
-      person_cp: createdNatural.cpf,
+      person_id: createdNatural.id,
       interest: "interessado",
     });
 

@@ -18,7 +18,7 @@ describe("POST /api/v1/projects/[id]/parties", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          person_cp: natural.cpf,
+          person_id: natural.id,
           interest: "interessado",
         }),
       },
@@ -61,7 +61,7 @@ describe("POST /api/v1/projects/[id]/parties", () => {
           Cookie: `session_id=${memberSession.token}`,
         },
         body: JSON.stringify({
-          person_cp: natural.cpf,
+          person_id: natural.id,
           interest: "interessado",
         }),
       },
@@ -74,7 +74,7 @@ describe("POST /api/v1/projects/[id]/parties", () => {
       message:
         "Você não possui permissão para gerenciar partes interessadas do projeto.",
       action:
-        "Apenas usuários com role 'owner' ou 'admin' podem gerenciar partes interessadas.",
+        "Apenas owner, admin, responsável legal ou consultoria ambiental do projeto podem gerenciar partes interessadas.",
       status_code: 403,
     });
   });
@@ -98,7 +98,7 @@ describe("POST /api/v1/projects/[id]/parties", () => {
           Cookie: `session_id=${ownerSession.token}`,
         },
         body: JSON.stringify({
-          person_cp: natural.cpf,
+          person_id: natural.id,
           interest: "interessado",
         }),
       },
@@ -109,8 +109,9 @@ describe("POST /api/v1/projects/[id]/parties", () => {
     expect(responseBody).toEqual(
       expect.objectContaining({
         project_id: project.id,
-        person_cp: natural.cpf,
+        person_id: natural.id,
         interest: "interessado",
+        person_name: natural.name,
       }),
     );
   });
@@ -141,7 +142,7 @@ describe("POST /api/v1/projects/[id]/parties", () => {
           "Content-Type": "application/json",
           Cookie: `session_id=${adminSession.token}`,
         },
-        body: JSON.stringify({ person_cp: legal.cnpj, interest: "consultor" }),
+        body: JSON.stringify({ person_id: legal.id, interest: "consultor" }),
       },
     );
 
@@ -150,13 +151,13 @@ describe("POST /api/v1/projects/[id]/parties", () => {
     expect(responseBody).toEqual(
       expect.objectContaining({
         project_id: project.id,
-        person_cp: legal.cnpj,
+        person_id: legal.id,
         interest: "consultor",
       }),
     );
   });
 
-  test("Cannot create duplicated party for same person_cp", async () => {
+  test("Cannot create duplicated party for same person_id", async () => {
     const owner = await orchestrator.createUser();
     const activatedOwner = await orchestrator.activateUser(owner);
     const ownerSession = await orchestrator.createSession(activatedOwner);
@@ -175,7 +176,7 @@ describe("POST /api/v1/projects/[id]/parties", () => {
           Cookie: `session_id=${ownerSession.token}`,
         },
         body: JSON.stringify({
-          person_cp: natural.cpf,
+          person_id: natural.id,
           interest: "interessado",
         }),
       },
@@ -191,7 +192,7 @@ describe("POST /api/v1/projects/[id]/parties", () => {
           Cookie: `session_id=${ownerSession.token}`,
         },
         body: JSON.stringify({
-          person_cp: natural.cpf,
+          person_id: natural.id,
           interest: "interessado",
         }),
       },

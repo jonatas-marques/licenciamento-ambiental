@@ -30,6 +30,25 @@ describe("models/authorization.js", () => {
       };
       expect(authorization.can(createdUser, "create:user")).toBe(true);
     });
+    test("User without access cannot update another person's record", () => {
+      const requestingUser = {
+        id: "requesting-user",
+        features: ["update:person"],
+      };
+      const anotherPersonsRecord = {
+        id: "person-id",
+        user_id: "another-user",
+        cpf: "12345678900",
+      };
+
+      expect(
+        authorization.can(
+          requestingUser,
+          "update:person",
+          anotherPersonsRecord,
+        ),
+      ).toBe(false);
+    });
   });
   describe(".filterOutput()", () => {
     test("Without `user`", () => {

@@ -2,6 +2,8 @@ import { createRouter } from "next-connect";
 import controller from "infra/controller.js";
 import project from "models/project.js";
 import authorization from "models/authorization.js";
+import user from "models/user.js";
+import { ValidationError } from "infra/errors.js";
 
 export default createRouter()
   .use(controller.injectAnonymousOrUser)
@@ -28,7 +30,14 @@ async function postHandler(request, response) {
   const userTryingToPost = request.context.user;
   const userInputValues = request.body;
 
-  const newMember = await project.addMember(userTryingToPost, userInputValues);
+  const memberUser = await findMemberUser(
+    userInputValues.user_identifier ?? userInputValues.user_id,
+  );
+  const newMember = await project.addMember(userTryingToPost, {
+    ...userInputValues,
+    project_id: request.query.id,
+    user_id: memberUser.id,
+  });
 
   const secureOutputValues = authorization.filterOutput(
     userTryingToPost,
@@ -36,4 +45,35 @@ async function postHandler(request, response) {
     newMember,
   );
   return response.status(201).json(secureOutputValues);
+}
+
+async function findMemberUser(userIdentifier) {
+  if (typeof userIdentifier !== "string" || userIdentifier.trim() === "") {
+    throw new ValidationError({
+      message: "Identificador do usuário não informado.",
+      action: "Informe o UUID, e-mail ou CPF da conta que deseja adicionar.",
+    });
+  }
+
+  const identifier = userIdentifier.trim();
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (uuidPattern.test(identifier)) {
+    return user.findOneById(identifier);
+  }
+
+  if (identifier.includes("@")) {
+    return user.findOneByEmail(identifier);
+  }
+
+  const cpf = identifier.replace(/\D/g, "");
+  if (/^\d{11}$/.test(cpf)) {
+    return user.findOneByCpf(cpf);
+  }
+
+  throw new ValidationError({
+    message: "Identificador do usuário inválido.",
+    action: "Informe um UUID válido, um e-mail ou um CPF com 11 dígitos.",
+  });
 }

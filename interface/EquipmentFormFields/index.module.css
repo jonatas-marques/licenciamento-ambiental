@@ -1,0 +1,14 @@
+.results {
+  border: 1px solid var(--borderColor-default);
+  border-radius: 6px;
+  margin-top: 4px;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+
+.selection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}

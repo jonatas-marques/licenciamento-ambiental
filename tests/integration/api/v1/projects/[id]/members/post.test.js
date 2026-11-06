@@ -1,5 +1,6 @@
 import orchestrator from "tests/orchestrator.js";
 import webserver from "infra/webserver.js";
+import person from "models/person.js";
 
 beforeAll(async () => {
   await orchestrator.waitForAllServices();
@@ -8,6 +9,60 @@ beforeAll(async () => {
 });
 
 describe("POST /api/v1/projects/[id]/members", () => {
+  test.each([
+    ["UUID", "id"],
+    ["e-mail", "email"],
+    ["CPF", "cpf"],
+  ])("Owner adds a user using their %s", async (_label, identifierField) => {
+    const owner = await orchestrator.createUser();
+    const activatedOwner = await orchestrator.activateUser(owner);
+    const ownerSession = await orchestrator.createSession(activatedOwner);
+    const projectResponse = await fetch(`${webserver.origin}/api/v1/projects`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `session_id=${ownerSession.token}`,
+      },
+      body: JSON.stringify({
+        name: `Project ${Date.now()} ${identifierField}`,
+      }),
+    });
+    expect(projectResponse.status).toBe(201);
+    const createdProject = await projectResponse.json();
+
+    const createdUser = await orchestrator.createUser();
+    await person.createNaturalPerson({
+      name: "Pessoa adicionada ao projeto",
+      cpf: createdUser.cpf,
+      created_by: activatedOwner.id,
+      user_id: createdUser.id,
+    });
+    const response = await fetch(
+      `${webserver.origin}/api/v1/projects/${createdProject.id}/members`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: `session_id=${ownerSession.token}`,
+        },
+        body: JSON.stringify({
+          role: "member",
+          user_identifier: createdUser[identifierField],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({
+        project_id: createdProject.id,
+        user_id: createdUser.id,
+        role: "member",
+        member_name: "Pessoa adicionada ao projeto",
+      }),
+    );
+  });
+
   describe("Anonymous user", () => {
     test("With valid data", async () => {
       const response = await fetch(

@@ -12,8 +12,8 @@ exports.up = (pgm) => {
       onDelete: "cascade",
     },
     // CPF ou CNPJ, sem FK: integridade garantida na aplicação
-    person_cp: {
-      type: "varchar(14)",
+    person_id: {
+      type: "uuid",
       notNull: true,
     },
     interest: {
@@ -22,7 +22,7 @@ exports.up = (pgm) => {
     },
   });
 
-  pgm.createIndex("parties", "person_cp");
+  pgm.createIndex("parties", "person_id");
 };
 
 exports.down = false;
