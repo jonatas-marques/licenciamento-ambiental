@@ -7,11 +7,11 @@ import createProjectNavigation from "../../../../../interface/ProjectNavigation"
 import useMceCollection from "../../../../../interface/useMceCollection";
 
 const title = "Fluxogramas";
-const description = "Processos produtivos do empreendimento.";
+const description =
+  "Fluxogramas conceituais de processos da atividade ou do empreendimento.";
 
 const fields = [
   { name: "name", label: "Nome", required: true },
-  { name: "activity", label: "Atividade" },
   { name: "description", label: "Descrição", multiline: true },
 ];
 

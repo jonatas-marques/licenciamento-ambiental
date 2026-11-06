@@ -413,13 +413,11 @@ try {
   await ensureItems("flowcharts", owner, demoProject.id, [
     {
       name: "Extração e beneficiamento de areia",
-      activity: "Lavra de areia em leito de rio",
       description:
         "Dragagem, bombeamento da polpa, peneiramento, lavagem e estocagem.",
     },
     {
       name: "Manutenção de máquinas",
-      activity: "Oficina de apoio",
       description: "Lubrificação, troca de óleo e lavagem de peças.",
     },
   ]);
@@ -575,7 +573,6 @@ try {
   await ensureItems("flowcharts", owner, farmProject.id, [
     {
       name: "Irrigação por pivô central",
-      activity: "Captação, adução e aplicação de água",
       description: "Captação em açude, bombeamento e distribuição por pivô.",
     },
   ]);
@@ -611,7 +608,6 @@ try {
   await ensureItems("flowcharts", accounts.admin, metalProject.id, [
     {
       name: "Usinagem de peças",
-      activity: "Torneamento e corte",
       description: "Recebimento de barras, corte, torneamento e expedição.",
     },
   ]);

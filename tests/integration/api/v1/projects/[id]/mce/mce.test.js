@@ -118,7 +118,7 @@ describe("MCE API", () => {
       "flowcharts",
       "name",
       { name: "Produção", activity: "Fabricação" },
-      "activity",
+      "description",
     ],
     [
       "equipments",
@@ -139,6 +139,7 @@ describe("MCE API", () => {
     expect(created.status).toBe(201);
     const item = await created.json();
     expect(item.name).toBe(values[nameField]);
+    expect(item).not.toHaveProperty("activity");
 
     const missingName = await fetch(collectionUrl, {
       method: "POST",

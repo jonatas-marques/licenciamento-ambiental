@@ -150,7 +150,6 @@ const RESOURCES = {
     selectSql: "SELECT flowcharts.* FROM flowcharts",
     fields: {
       name: text("name", 254),
-      activity: text("activity"),
       description: text("description"),
       boundary_x: number("boundary_x"),
       boundary_y: number("boundary_y"),
